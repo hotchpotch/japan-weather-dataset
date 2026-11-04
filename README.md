@@ -42,7 +42,10 @@ jwd status
 ```
 
 Every command can be stopped and restarted; finished station-years are
-skipped. `backfill -dry-run` prints the plan, `-max-jobs N` limits a run,
+skipped. For the long backfill, `scripts/jwd-until-done.sh ./bin/jwd …`
+restarts the command after a growing cool-down when it stops on network
+errors, persistent rate limiting or the own quota, and stops on a block or
+maintenance. `backfill -dry-run` prints the plan, `-max-jobs N` limits a run,
 `-stations` and `-from-year` / `-to-year` narrow it.
 
 Daily operation (after ~01:00 JST, when yesterday's values are available):
@@ -55,7 +58,7 @@ hf upload <user>/<dataset> /data/dataset . --repo-type dataset
 ```
 
 Global flags: `-interval` (default 3s), `-budget` (cells per request,
-default 180000, max 200000), `-max-stations`, `-max-requests-per-24h`,
+default 100000, max 200000; larger requests time out), `-max-stations`, `-max-requests-per-24h`,
 `-max-rate-limit-hits`, `-keep-raw` (store the raw CSV responses),
 `-user-agent`.
 

@@ -41,7 +41,18 @@ type Crawler struct {
 	// Now returns the current time; the latest requestable day is the day
 	// before today in JST.
 	Now func() time.Time
+
+	// limit is the request size in effect. It starts at Budget and is
+	// halved whenever the server fails on a request (e.g. HTTP 504 when
+	// a request takes longer than about 60 s); larger planned requests are
+	// split before they are sent.
+	limit int
+	// fetchFunc replaces fetch in tests.
+	fetchFunc func(ctx context.Context, purpose string, req obsdl.TableRequest) (*obsdl.Table, int64, error)
 }
+
+// minLimit is the smallest request size limit lowers to.
+const minLimit = 1_000
 
 func (c *Crawler) now() time.Time {
 	if c.Now != nil {
@@ -180,15 +191,35 @@ func (c *Crawler) saveRaw(id int64, req obsdl.TableRequest, body []byte) error {
 	return os.WriteFile(filepath.Join(dir, fmt.Sprintf("%08d.csv.gz", id)), buf.Bytes(), 0o644)
 }
 
-// fetchJob runs the request of a job and passes the result to handle. When
-// the server rejects the request as too large or fails on it, the job is
-// split in two and each half is fetched in turn.
+// fetchJob runs the request of a job and passes the result to handle. A job
+// larger than the current limit is split before it is sent. When the server
+// rejects the request as too large or fails on it, the limit is halved for
+// the rest of the run and the job is split in two.
 func (c *Crawler) fetchJob(ctx context.Context, j job, handle func(job, *obsdl.Table, int64) error) error {
-	tab, id, err := c.fetch(ctx, j.Purpose, j.Req)
+	if c.limit == 0 {
+		c.limit = c.Budget
+	}
+	if j.Req.Cells() > c.limit {
+		if a, b, ok := split(j); ok {
+			if err := c.fetchJob(ctx, a, handle); err != nil {
+				return err
+			}
+			return c.fetchJob(ctx, b, handle)
+		}
+	}
+	fetch := c.fetch
+	if c.fetchFunc != nil {
+		fetch = c.fetchFunc
+	}
+	tab, id, err := fetch(ctx, j.Purpose, j.Req)
 	if errors.Is(err, obsdl.ErrTooLarge) || errors.Is(err, obsdl.ErrServer) {
 		a, b, ok := split(j)
 		if !ok {
 			return err
+		}
+		if l := max(minLimit, min(c.limit, j.Req.Cells())/2); l < c.limit {
+			c.limit = l
+			c.Log.Warn("lowering request size", "limit", l, "err", err)
 		}
 		c.Log.Warn("request failed, splitting", "job", j.String(), "err", err)
 		if err := c.fetchJob(ctx, a, handle); err != nil {
@@ -345,6 +376,14 @@ func (c *Crawler) packWith(budget int, purpose string, f obsdl.Frequency, units 
 		base := obsdl.TableRequest{Frequency: f, Elements: us[0].elements, From: reqFrom, To: storeTo,
 			SameDaysEachYear: mode == sameDays, Stations: []string{"x"}}
 		per := base.Cells()
+		if per > budget && mode != sameDays && storeTo.After(storeFrom) {
+			// One station alone is over budget: split the period up front
+			// instead of letting the server time out and splitting afterwards.
+			for _, p := range splitPeriod(f, len(us[0].elements), storeFrom, storeTo, mode, budget) {
+				jobs = append(jobs, c.packWith(budget, purpose, f, us, p[0], p[1], mode)...)
+			}
+			continue
+		}
 		capacity := max(1, budget/per)
 		capacity = min(capacity, c.MaxStations)
 		for i := 0; i < len(us); i += capacity {
@@ -357,6 +396,30 @@ func (c *Crawler) packWith(budget int, purpose string, f obsdl.Frequency, units 
 		}
 	}
 	return jobs
+}
+
+// splitPeriod divides [storeFrom, storeTo] into the fewest consecutive
+// periods whose one-station request fits the budget. A period shorter than
+// a day cannot be split, so a single day may still be over budget.
+func splitPeriod(f obsdl.Frequency, elements int, storeFrom, storeTo time.Time, mode packMode, budget int) [][2]time.Time {
+	days := int(storeTo.Sub(storeFrom).Hours()/24) + 1
+	for n := 2; ; n++ {
+		var parts [][2]time.Time
+		fits := true
+		for i := range n {
+			from := storeFrom.AddDate(0, 0, days*i/n)
+			to := storeFrom.AddDate(0, 0, days*(i+1)/n-1)
+			req := obsdl.TableRequest{Frequency: f, Elements: make([]obsdl.Element, elements), Stations: []string{"x"}, From: from, To: to}
+			if mode == withOverlap {
+				req.From = from.AddDate(0, 0, -1)
+			}
+			fits = fits && req.Cells() <= budget
+			parts = append(parts, [2]time.Time{from, to})
+		}
+		if fits || n >= days {
+			return parts
+		}
+	}
 }
 
 // elementsFor returns the elements requested for a station.

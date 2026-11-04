@@ -63,7 +63,14 @@ Errors come back as HTTP 200 HTML pages without the attachment header:
 The page computes the size as stations × elements × time steps (days, or
 days × 24 for hourly) and allows up to 200,000. The server enforces it:
 one official station with 15 hourly elements for one year (131,760) works,
-two years (263,520) is rejected. `jwd` packs requests up to 180,000.
+two years (263,520) is rejected.
+
+The response time grows with the size: on 2026-11-04 the server answered
+about 2,500 cells per second, and requests of ~177,000 cells failed with
+HTTP 504 after about 60 s (a gateway timeout) while ~99,000 cells came back
+in about 37 s. `jwd` therefore packs requests up to 100,000 cells and splits
+the period of a station whose year alone is larger (hourly official
+stations) before sending.
 
 The page also asks users not to put excessive load with automated tools
 (「自動化ツール等による過度のアクセスはお控えいただく」). `jwd` sends one request at

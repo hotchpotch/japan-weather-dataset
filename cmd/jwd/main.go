@@ -64,7 +64,7 @@ func main() {
 	fs.DurationVar(&g.interval, "interval", 3*time.Second, "minimum interval between requests to JMA")
 	fs.StringVar(&g.userAgent, "user-agent", env("JWD_USER_AGENT",
 		"japan-weather-dataset/"+version+" (+https://github.com/hotchpotch/japan-weather-dataset)"), "User-Agent header (env JWD_USER_AGENT)")
-	fs.IntVar(&g.budget, "budget", 180_000, fmt.Sprintf("maximum request size in cells (server limit %d)", obsdl.ServerCellLimit))
+	fs.IntVar(&g.budget, "budget", 100_000, fmt.Sprintf("maximum request size in cells (server limit %d)", obsdl.ServerCellLimit))
 	fs.IntVar(&g.maxStations, "max-stations", 50, "maximum stations per request")
 	fs.IntVar(&g.maxRetries, "max-retries", 5, "retries of a failed request (exponential backoff from 30s)")
 	fs.IntVar(&g.maxPerDay, "max-requests-per-24h", 0, "stop when this many requests were sent in the last 24 hours (0: no limit)")

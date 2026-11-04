@@ -138,7 +138,11 @@ with the default interval; the daily update is about 150 requests.
 ### Failure handling
 
 - Too large (error page) or repeated HTTP 500/502/504: the request is split
-  (by stations, then by period) and retried.
+  (by stations, then by period) and retried, and the request size limit is
+  halved for the rest of the run (down to 1,000 cells); planned requests
+  above the limit are split before they are sent. The server answers about
+  2,500 cells per second and times out after about 60 s, so it slows down
+  when busy; halving finds a size that fits without tuning `-budget`.
 - Changes of the CSV layout (element or station order, unknown attribute
   columns) abort the run instead of storing misaligned values.
 - Every request is logged in the state DB (`requests` table) with its
