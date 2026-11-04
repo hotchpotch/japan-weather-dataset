@@ -1,0 +1,127 @@
+---
+license: cc-by-4.0
+language:
+- ja
+- en
+pretty_name: Japan Weather Observations (JMA, daily and hourly)
+tags:
+- weather
+- climate
+- meteorology
+- japan
+- amedas
+- time-series
+size_categories:
+- 100M<n<1B
+configs:
+- config_name: daily
+  data_files: "daily/*/*.parquet"
+  default: true
+- config_name: hourly
+  data_files: "hourly/*/*.parquet"
+- config_name: stations
+  data_files: "stations/stations.parquet"
+- config_name: homogeneity_breaks
+  data_files: "homogeneity_breaks/homogeneity_breaks.parquet"
+---
+
+# Japan Weather Observations (JMA, daily and hourly)
+
+Daily and hourly surface observations of every station of the Japan
+Meteorological Agency (JMA): the official stations (気象台・測候所等) and the
+AMeDAS network, converted to Parquet and updated every day.
+
+- Source: JMA 「過去の気象データ・ダウンロード」 <https://www.data.jma.go.jp/risk/obsdl/>
+- Stations: {{.Stations}} (including stations that no longer observe)
+- Daily values: {{.DailyYears}} / hourly values: {{.HourlyYears}}
+- Latest day: {{.LatestDate}} (JST). Values of recent days are preliminary and may be revised by JMA.
+- Generated: {{.GeneratedAt}}
+- Built with <https://github.com/hotchpotch/japan-weather-dataset>
+
+**This dataset is not published by JMA or the Government of Japan.** It is a
+processed copy made by a third party. Check important values against the
+original service.
+
+## 出典・ライセンス
+
+出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）を加工して作成
+
+The source data is published under the
+[公共データ利用規約（第1.0版） / Public Data License 1.0](https://www.digital.go.jp/resources/open_data/public_data_license_v1.0)
+as stated in the [JMA website terms](https://www.jma.go.jp/jma/kishou/info/coment.html).
+PDL 1.0 is compatible with CC BY 4.0, and the government permits use of the
+content under CC BY 4.0; this dataset is distributed under CC BY 4.0.
+
+When you use this dataset, credit the source as above and state that it was
+processed. Do not present processed data as if the government created it.
+
+## Usage
+
+```sql
+-- Daily maximum temperature in Tokyo (s47662) in August 2025
+SELECT date, temperature_max, temperature_max_quality
+FROM daily
+WHERE station_id = 's47662' AND date BETWEEN '2025-08-01' AND '2025-08-31'
+ORDER BY date;
+```
+
+```python
+from datasets import load_dataset
+daily = load_dataset("<repo>", "daily", split="train")
+```
+
+```sql
+-- DuckDB, reading from the Hub
+SELECT s.name, d.date, d.precipitation_total
+FROM 'hf://datasets/<repo>/daily/year=2019/data.parquet' d
+JOIN 'hf://datasets/<repo>/stations/stations.parquet' s USING (station_id)
+WHERE d.date = '2019-10-12'
+ORDER BY d.precipitation_total DESC NULLS LAST
+LIMIT 10;
+```
+
+## Tables
+
+- `stations`: station list with position, prefecture, observed categories and the years with data.
+- `daily`: one row per station and day.
+- `hourly`: one row per station and hour. `hour` is 1..24 and the values cover the hour *ending* at `hour`:00 JST; hour 24 is midnight at the end of `date`. `datetime_jst` is the same instant as a timestamp without time zone.
+- `homogeneity_breaks`: dates where JMA's homogeneity number (均質番号) of an element changes, e.g. after a station moved or instruments changed. Values on either side of a break should not be compared directly.
+
+Rows where no element was observed are omitted. Elements that a station does
+not observe are null with quality 0 or null.
+
+### Quality flags (`*_quality`)
+
+| value | meaning |
+|---|---|
+| 8 | normal (正常値) |
+| 5 | quasi-normal: some source data missing within the allowed range (準正常値) |
+| 4 | insufficient data (資料不足値) |
+| 2 | questionable (疑問値) |
+| 1 | missing (欠測) |
+| 0 | not an observed / derived element (観測・統計項目でない) |
+
+`*_no_phenomenon` is JMA's 現象なし情報: true means the phenomenon (rain,
+snow, sunshine) did not occur, as opposed to a value of 0 with the
+phenomenon present. Only official stations report it; it is null for AMeDAS.
+
+Wind directions are 16-point codes: 1 = NNE, 2 = NE, …, 15 = NNW, 16 = N, 0 = calm.
+
+### daily
+
+| column | type | description |
+|---|---|---|
+{{range .DailyColumns}}| {{.Name}} | {{.Type}} | {{.Description}} |
+{{end}}
+### hourly
+
+| column | type | description |
+|---|---|---|
+{{range .HourlyColumns}}| {{.Name}} | {{.Type}} | {{.Description}} |
+{{end}}
+## Notes
+
+- Station ids are obsdl ids: `s` + WMO-style 5 digits for official stations, `a` + 4 digits for AMeDAS stations.
+- Station positions are the current (or last) positions given in degrees and 0.1 minutes; past relocations are not reflected.
+- AMeDAS sunshine duration since March 2021 is estimated from satellite data by JMA.
+- JMA corrects past values from time to time. The latest days are fetched again every day and older years are refreshed on a rolling basis.
