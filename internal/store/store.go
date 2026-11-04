@@ -114,6 +114,8 @@ func Open(dir string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
+	// TIMESTAMP -> TIMESTAMPTZ casts read naive times as UTC.
+	db.Exec("SET GLOBAL TimeZone = 'UTC'")
 	s := &Store{Dir: dir, DB: db}
 	for _, f := range []obsdl.Frequency{obsdl.Hourly, obsdl.Daily} {
 		if _, err := db.Exec(fmt.Sprintf("CREATE OR REPLACE TABLE %s (%s)", stagingTable(f), columnDDL(f))); err != nil {
@@ -125,6 +127,10 @@ func Open(dir string) (*Store, error) {
 }
 
 func (s *Store) Close() error { return s.DB.Close() }
+
+// UpdatedAtDescription documents the updated_at column of chunks and of the
+// exported rows.
+const UpdatedAtDescription = "when jwd first fetched the row with its current values (UTC); a later time than the first fetch means JMA changed the row"
 
 func stagingTable(f obsdl.Frequency) string { return "staging_" + string(f) }
 
@@ -202,22 +208,89 @@ func (s *Store) WriteChunk(ctx context.Context, f obsdl.Frequency, station strin
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	query := "SELECT * FROM " + staging
-	if _, err := os.Stat(path); err == nil {
-		query += fmt.Sprintf(" UNION ALL BY NAME SELECT * FROM read_parquet(%s) WHERE date < DATE %s OR date > DATE %s",
-			sqlString(path), sqlString(from.Format(time.DateOnly)), sqlString(to.Format(time.DateOnly)))
-	} else if !errors.Is(err, os.ErrNotExist) {
+	var prevFetched time.Time
+	err = conn.QueryRowContext(ctx, `SELECT fetched_at FROM chunks WHERE frequency = ? AND station_id = ? AND year = ?`,
+		string(f), station, year).Scan(&prevFetched)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
+	}
+	exists := true
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		exists = false
+	} else if err != nil {
+		return err
+	}
+	inRange := fmt.Sprintf("date BETWEEN DATE %s AND DATE %s", sqlString(from.Format(time.DateOnly)), sqlString(to.Format(time.DateOnly)))
+
+	// old: the stored rows, with updated_at (chunks written before the
+	// column existed get the fetch time of the chunk).
+	old := "SELECT * FROM " + staging + " WHERE false"
+	oldUpdated := "NULL::TIMESTAMPTZ AS updated_at"
+	legacy := false
+	if exists {
+		var hasUpdated bool
+		if err := conn.QueryRowContext(ctx, fmt.Sprintf(`SELECT count(*) > 0 FROM (DESCRIBE SELECT * FROM read_parquet(%s)) WHERE column_name = 'updated_at'`,
+			sqlString(path))).Scan(&hasUpdated); err != nil {
+			return fmt.Errorf("describe %s: %w", path, err)
+		}
+		old = fmt.Sprintf("SELECT * FROM read_parquet(%s)", sqlString(path))
+		if !hasUpdated {
+			legacy = true // rewrite once to keep the original fetch time
+			old = fmt.Sprintf("SELECT *, %s AS updated_at FROM read_parquet(%s)", tsLiteral(prevFetched), sqlString(path))
+		}
+		oldUpdated = ""
+	}
+	if oldUpdated != "" {
+		old = fmt.Sprintf("SELECT *, %s FROM (%s)", oldUpdated, old)
+	}
+
+	// Rows of the range keep their updated_at when every column is the same
+	// as stored; changed and new rows get the fetch time.
+	var same []string
+	for _, c := range Columns(f) {
+		same = append(same, fmt.Sprintf("n.%[1]q IS NOT DISTINCT FROM o.%[1]q", c.Name))
+	}
+	var join []string
+	for _, c := range obsdl.KeyColumns(f) {
+		if c.Name != "datetime_jst" {
+			join = append(join, fmt.Sprintf("n.%[1]q = o.%[1]q", c.Name))
+		}
+	}
+	merged := "chunk_merged_" + string(f)
+	if _, err := conn.ExecContext(ctx, fmt.Sprintf(`CREATE OR REPLACE TEMP TABLE %s AS
+SELECT n.*, o.station_id IS NOT NULL AND %s AS same, CASE WHEN o.station_id IS NOT NULL AND %[2]s THEN o.updated_at ELSE %s END AS updated_at
+FROM %s n LEFT JOIN (SELECT * FROM (%s) WHERE %s) o ON %s`,
+		merged, strings.Join(same, " AND "), tsLiteral(fetch.FetchedAt), staging, old, inRange, strings.Join(join, " AND "))); err != nil {
+		return fmt.Errorf("compare %s: %w", path, err)
+	}
+	var changed, replaced int
+	if err := conn.QueryRowContext(ctx, `SELECT count(*) FILTER (WHERE NOT same) FROM `+merged).Scan(&changed); err != nil {
+		return err
+	}
+	if exists {
+		var kept int
+		if err := conn.QueryRowContext(ctx, fmt.Sprintf(`SELECT (SELECT count(*) FROM (%s) WHERE %s) - (SELECT count(*) FROM %s WHERE same)`,
+			old, inRange, merged)).Scan(&kept); err != nil {
+			return err
+		}
+		replaced = kept
+	}
+
+	query := "SELECT * EXCLUDE (same) FROM " + merged
+	if exists {
+		query += fmt.Sprintf(" UNION ALL BY NAME SELECT * FROM (%s) WHERE NOT (%s)", old, inRange)
 	}
 	var rows int
 	if err := conn.QueryRowContext(ctx, "SELECT count(*) FROM ("+query+")").Scan(&rows); err != nil {
 		return fmt.Errorf("count %s: %w", path, err)
 	}
-	if rows == 0 {
+	modified := changed > 0 || replaced > 0
+	switch {
+	case rows == 0:
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-	} else {
+	case modified || !exists || legacy:
 		tmp := path + ".tmp"
 		copySQL := fmt.Sprintf("COPY (SELECT * FROM (%s) ORDER BY %s) TO %s (FORMAT parquet, COMPRESSION zstd)",
 			query, orderBy(f), sqlString(tmp))
@@ -228,20 +301,29 @@ func (s *Store) WriteChunk(ctx context.Context, f obsdl.Frequency, station strin
 			return err
 		}
 	}
+	if _, err := conn.ExecContext(ctx, "DROP TABLE "+merged); err != nil {
+		return err
+	}
 
 	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	oldBreaks, err := breakKeys(ctx, tx, station, f, from, to)
+	if err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM breaks WHERE station_id = ? AND frequency = ? AND date BETWEEN ? AND ?`,
 		station, string(f), from, to); err != nil {
 		return err
 	}
+	newBreaks := map[string]bool{}
 	for _, b := range breaks {
 		if b.At.Date.Before(from) || b.At.Date.After(to) {
 			continue
 		}
+		newBreaks[breakKey(b.Element, b.At.Date, b.At.Hour)] = true
 		if _, err := tx.ExecContext(ctx, `INSERT INTO breaks VALUES (?, ?, ?, ?, ?)`,
 			station, string(f), b.Element, b.At.Date, uint8(b.At.Hour)); err != nil {
 			return err
@@ -270,8 +352,52 @@ func (s *Store) WriteChunk(ctx context.Context, f obsdl.Frequency, station strin
 		string(f), station, year, newFrom, newTo, rows, fetch.FetchedAt, fetch.JMADownloadsAt, fetch.RequestID); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO dirty VALUES (?, ?)`, string(f), year); err != nil {
-		return err
+	if modified || (!exists && rows > 0) || !sameKeys(oldBreaks, newBreaks) {
+		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO dirty VALUES (?, ?)`, string(f), year); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
+}
+
+// tsLiteral is a TIMESTAMPTZ literal of t.
+func tsLiteral(t time.Time) string {
+	return "TIMESTAMPTZ " + sqlString(t.UTC().Format("2006-01-02 15:04:05.999999")+"+00")
+}
+
+func breakKey(element string, date time.Time, hour int) string {
+	return fmt.Sprintf("%s|%s|%d", element, date.Format(time.DateOnly), hour)
+}
+
+// breakKeys returns the stored homogeneity breaks of a station in [from, to].
+func breakKeys(ctx context.Context, tx *sql.Tx, station string, f obsdl.Frequency, from, to time.Time) (map[string]bool, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT element, date, hour FROM breaks WHERE station_id = ? AND frequency = ? AND date BETWEEN ? AND ?`,
+		station, string(f), from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var el string
+		var d time.Time
+		var h int
+		if err := rows.Scan(&el, &d, &h); err != nil {
+			return nil, err
+		}
+		out[breakKey(el, d, h)] = true
+	}
+	return out, rows.Err()
+}
+
+func sameKeys(a, b map[string]bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if !b[k] {
+			return false
+		}
+	}
+	return true
 }

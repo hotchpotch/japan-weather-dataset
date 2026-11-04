@@ -67,6 +67,13 @@ Wind directions: 1 = NNE … 16 = N, 0 = calm.
   hour as a naive timestamp.
 - Rows where every element has quality 0 (not observed) are omitted, so
   rows exist only within a station's observation period.
+- `updated_at` (UTC) is when `jwd` first fetched the row with its current
+  values. When a refetch returns a row that differs in any column (value,
+  quality, flags), the row gets the time of that fetch; an unchanged row
+  keeps its time. So `updated_at` later than the first fetch of a year means
+  JMA changed the row afterwards. JMA does not publish when a value was
+  changed: the time is when `jwd` noticed it (daily for the last 31 days,
+  later for older data; see the daily update).
 
 ### Homogeneity
 
@@ -93,9 +100,11 @@ viewer and SQL console read them, and limit a daily upload to the files of
 the changed years (normally only the current year).
 
 Internally `jwd` keeps one Parquet file per (frequency, station, year)
-under `chunks/` plus a DuckDB state file. A refetch replaces exactly one
-station-year (or the refetched days of it); export concatenates the chunks
-of changed years.
+under `chunks/` plus a DuckDB state file. A refetch compares the fetched
+rows of a station-year with the stored ones and rewrites the chunk only when
+something changed; only then is the year marked for export, so a daily
+upload contains the years that really changed. Export concatenates the
+chunks of those years.
 
 ## Collection
 

@@ -65,8 +65,22 @@ func (e *Exporter) Run(ctx context.Context) error {
 					order += ", hour"
 				}
 				tmp := dst + ".tmp"
-				sql := fmt.Sprintf(`COPY (SELECT * FROM read_parquet(%s, union_by_name = true) ORDER BY %s)
-TO %s (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 100000)`, q(src), order, q(tmp))
+				// Chunks written before updated_at existed take the fetch
+				// time of the chunk.
+				var hasUpdated bool
+				if err := db.QueryRowContext(ctx, fmt.Sprintf(`SELECT count(*) > 0 FROM (DESCRIBE SELECT * FROM read_parquet(%s, union_by_name = true)) WHERE column_name = 'updated_at'`,
+					q(src))).Scan(&hasUpdated); err != nil {
+					return fmt.Errorf("export %s %d: %w", f, y, err)
+				}
+				cols, updated := "p.*", "CAST(c.fetched_at AS TIMESTAMPTZ)"
+				if hasUpdated {
+					cols, updated = "p.* EXCLUDE (updated_at)", "coalesce(p.updated_at, CAST(c.fetched_at AS TIMESTAMPTZ))"
+				}
+				sql := fmt.Sprintf(`COPY (SELECT %s, %s AS updated_at
+FROM read_parquet(%s, union_by_name = true) p
+LEFT JOIN chunks c ON c.frequency = %s AND c.year = %d AND c.station_id = p.station_id
+ORDER BY %s)
+TO %s (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 100000)`, cols, updated, q(src), q(string(f)), y, order, q(tmp))
 				if _, err := db.ExecContext(ctx, sql); err != nil {
 					return fmt.Errorf("export %s %d: %w", f, y, err)
 				}
@@ -155,7 +169,7 @@ func columns(f obsdl.Frequency) []cardColumn {
 	for _, c := range store.Columns(f) {
 		out = append(out, cardColumn{c.Name, c.Type, strings.ReplaceAll(c.Description, "|", "/")})
 	}
-	return out
+	return append(out, cardColumn{"updated_at", "TIMESTAMPTZ", store.UpdatedAtDescription})
 }
 
 func (e *Exporter) yearSpan(ctx context.Context, f obsdl.Frequency) string {
