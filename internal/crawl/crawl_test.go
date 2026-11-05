@@ -42,6 +42,19 @@ func TestPack(t *testing.T) {
 	}
 }
 
+func TestPackNoOverlapBeforeMinYear(t *testing.T) {
+	c := &Crawler{Budget: 100_000, MaxStations: 50}
+	units := []unit{{station: "s47412", elements: obsdl.ElementsFor(obsdl.Daily, true, nil)}}
+	jobs := c.pack("backfill", obsdl.Daily, units, day(MinYear, 1, 1), day(MinYear, 12, 31), withOverlap)
+	if len(jobs) != 1 || !jobs[0].Req.From.Equal(day(MinYear, 1, 1)) {
+		t.Errorf("request must not start before %d-01-01: %v", MinYear, jobs)
+	}
+	jobs = c.pack("backfill", obsdl.Daily, units, day(MinYear+1, 1, 1), day(MinYear+1, 12, 31), withOverlap)
+	if len(jobs) != 1 || !jobs[0].Req.From.Equal(day(MinYear, 12, 31)) {
+		t.Errorf("overlap day missing: %v", jobs)
+	}
+}
+
 func TestSplit(t *testing.T) {
 	j := job{Req: obsdl.TableRequest{Frequency: obsdl.Daily, Stations: []string{"a", "b", "c"},
 		From: day(2023, 12, 31), To: day(2024, 12, 31)}, StoreFrom: day(2024, 1, 1), StoreTo: day(2024, 12, 31)}

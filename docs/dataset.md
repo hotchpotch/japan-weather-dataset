@@ -79,7 +79,8 @@ Wind directions: 1 = NNE … 16 = N, 0 = calm.
 
 obsdl numbers homogeneity (均質番号) from 1 at the start of each request,
 so the numbers cannot be stored as they are when data is fetched in pieces.
-Each request starts one day before the stored range; a change of the number
+Each request starts one day before the stored range (except at
+1872-01-01, the first day the service accepts); a change of the number
 between consecutive rows is stored as a break (`station_id`, `frequency`,
 `element`, `date`, `hour`) in `homogeneity_breaks`. The homogeneity number of
 a row is 1 + the number of breaks of its station and element at or before

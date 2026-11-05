@@ -24,6 +24,17 @@ import (
 // stations start in 1872.
 const MinYear = 1872
 
+// overlapFrom is the first day requested for data stored from storeFrom:
+// one day earlier, to detect homogeneity breaks at storeFrom, except at the
+// start of MinYear, which is the first day the service accepts (an earlier
+// day is answered with the "too large" error page).
+func overlapFrom(storeFrom time.Time) time.Time {
+	if !storeFrom.After(time.Date(MinYear, 1, 1, 0, 0, 0, 0, time.UTC)) {
+		return storeFrom
+	}
+	return storeFrom.AddDate(0, 0, -1)
+}
+
 type Crawler struct {
 	Client *obsdl.Client
 	Store  *store.Store
@@ -368,7 +379,7 @@ func (c *Crawler) packWith(budget int, purpose string, f obsdl.Frequency, units 
 	sort.Strings(keys)
 	reqFrom := storeFrom
 	if mode == withOverlap {
-		reqFrom = storeFrom.AddDate(0, 0, -1)
+		reqFrom = overlapFrom(storeFrom)
 	}
 	var jobs []job
 	for _, k := range keys {
@@ -411,7 +422,7 @@ func splitPeriod(f obsdl.Frequency, elements int, storeFrom, storeTo time.Time, 
 			to := storeFrom.AddDate(0, 0, days*(i+1)/n-1)
 			req := obsdl.TableRequest{Frequency: f, Elements: make([]obsdl.Element, elements), Stations: []string{"x"}, From: from, To: to}
 			if mode == withOverlap {
-				req.From = from.AddDate(0, 0, -1)
+				req.From = overlapFrom(from)
 			}
 			fits = fits && req.Cells() <= budget
 			parts = append(parts, [2]time.Time{from, to})
