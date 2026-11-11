@@ -51,7 +51,7 @@ func newFakeClient(t *testing.T, responses []fakeResponse) (*Client, *[]AccessEv
 	var events []AccessEvent
 	c := NewClient(Options{
 		BaseURL:          srv.URL,
-		MinInterval:      time.Millisecond,
+		Interval:         time.Millisecond,
 		MaxInterval:      8 * time.Millisecond,
 		RetryBase:        time.Millisecond,
 		RateLimitBase:    time.Millisecond,
@@ -128,4 +128,99 @@ func TestStationJSONAsHTMLIsError(t *testing.T) {
 	if !errors.Is(err, ErrBlocked) {
 		t.Errorf("err = %v", err)
 	}
+}
+
+func TestIntervalComesDownAndHoldsAfterRateLimit(t *testing.T) {
+	c := NewClient(Options{Interval: 6 * time.Second, MinInterval: 3 * time.Second, SpeedUpAfter: 2,
+		SpeedUpStep: 500 * time.Millisecond, SlowResponse: 30 * time.Second})
+	succeed := func(n int, dur time.Duration) {
+		for range n {
+			c.speedUp(dur)
+		}
+	}
+	succeed(1, time.Second)
+	succeed(1, time.Minute) // a slow response resets the run of successes
+	succeed(1, time.Second)
+	if c.Interval() != 6*time.Second {
+		t.Fatalf("lowered despite slow response: %v", c.Interval())
+	}
+	succeed(100, time.Second)
+	if c.Interval() != 3*time.Second {
+		t.Fatalf("interval %v, want the floor 3s", c.Interval())
+	}
+	if iv, _ := c.slowDown(); iv != 6*time.Second {
+		t.Fatalf("slowDown to %v", iv)
+	}
+	succeed(100, time.Second)
+	if c.Interval() != 4*time.Second { // held at the hit interval + 2 steps
+		t.Fatalf("interval %v after a rate limit at 3s, want 4s", c.Interval())
+	}
+	c.hitAt = time.Now().Add(-2 * time.Hour)
+	succeed(100, time.Second)
+	if c.Interval() != 3*time.Second {
+		t.Fatalf("interval %v after the hold, want 3s", c.Interval())
+	}
+}
+
+func TestRestoreRateLimit(t *testing.T) {
+	c := NewClient(Options{Interval: 6 * time.Second, MinInterval: 3 * time.Second, MaxInterval: time.Minute})
+	c.RestoreRateLimit(4*time.Second, 3*time.Second, time.Now().Add(-time.Minute))
+	if c.Interval() != 6*time.Second {
+		t.Errorf("restored interval below -interval: %v", c.Interval())
+	}
+	c.RestoreRateLimit(12*time.Second, 6*time.Second, time.Now().Add(-time.Minute))
+	if iv, at := c.LastRateLimit(); c.Interval() != 12*time.Second || iv != 6*time.Second || at.IsZero() {
+		t.Errorf("interval %v, last hit %v at %v", c.Interval(), iv, at)
+	}
+	c = NewClient(Options{Interval: 6 * time.Second})
+	c.RestoreRateLimit(6*time.Second, 3*time.Second, time.Now().Add(-2*time.Hour))
+	if _, at := c.LastRateLimit(); !at.IsZero() {
+		t.Error("an old rate limit must not be restored")
+	}
+}
+
+// TestIntervalSettlesAboveServerLimit runs against a server that answers
+// 429 when the pause since its previous response is shorter than 8 ms.
+func TestIntervalSettlesAboveServerLimit(t *testing.T) {
+	const limit = 8 * time.Millisecond
+	var mu sync.Mutex
+	var lastEnd time.Time
+	var hits []int
+	reqs := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/index.php" {
+			return
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		reqs++
+		busy := !lastEnd.IsZero() && time.Since(lastEnd) < limit
+		defer func() { lastEnd = time.Now() }()
+		if busy {
+			hits = append(hits, reqs)
+			w.WriteHeader(http.StatusTooManyRequests)
+			io.WriteString(w, "<body>ただいまアクセスが集中しています。</body>")
+			return
+		}
+		w.Header().Set("Content-Disposition", `attachment; filename="data.csv"`)
+		s, _ := japanese.ShiftJIS.NewEncoder().String(okCSV)
+		io.WriteString(w, s)
+	}))
+	t.Cleanup(srv.Close)
+	c := NewClient(Options{BaseURL: srv.URL, Interval: 20 * time.Millisecond, MinInterval: 2 * time.Millisecond,
+		SpeedUpAfter: 3, SpeedUpStep: 2 * time.Millisecond, MaxInterval: 40 * time.Millisecond,
+		RateLimitBase: time.Millisecond, RateLimitMaxWait: 4 * time.Millisecond, MaxRateLimitHits: 3,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	for range 150 {
+		if _, err := c.do(context.Background(), "show/table", nil, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(hits) == 0 || len(hits) > 2 || hits[len(hits)-1] > 100 {
+		t.Errorf("rate-limited responses at requests %v (of %d)", hits, reqs)
+	}
+	if c.Interval() < limit {
+		t.Errorf("interval %v settled below the server limit %v", c.Interval(), limit)
+	}
+	t.Logf("hits at %v, final interval %v", hits, c.Interval())
 }

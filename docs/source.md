@@ -74,7 +74,8 @@ stations) before sending.
 
 The page also asks users not to put excessive load with automated tools
 (「自動化ツール等による過度のアクセスはお控えいただく」). `jwd` sends one request at
-a time, waits at least 3 s between requests, doubles the interval after a
+a time, pauses at least 3 s after each response (6 s at the start, lowered
+step by step while no request is rate limited), doubles the pause after a
 429/503 and backs off exponentially on errors; see
 [access restrictions](dataset.md#access-restrictions).
 

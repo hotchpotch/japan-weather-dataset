@@ -26,6 +26,8 @@ const (
 	EventRateLimited AccessEventKind = "rate_limited"
 	// EventSlowedDown: the interval between requests was raised.
 	EventSlowedDown AccessEventKind = "slowed_down"
+	// EventSpedUp: the interval between requests was lowered after a run of successes.
+	EventSpedUp AccessEventKind = "sped_up"
 	// EventRecovered: a request succeeded after being rate limited.
 	EventRecovered AccessEventKind = "recovered"
 	// EventGaveUp: rate limiting lasted too long; the request failed with ErrRateLimited.

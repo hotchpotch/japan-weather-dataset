@@ -59,8 +59,13 @@ type AccessStatus struct {
 	UpdatedAt time.Time   `json:"updated_at"`
 	Command   string      `json:"command"`
 	Interval  string      `json:"interval"`
-	LastEvent *EventJSON  `json:"last_event,omitempty"`
-	Message   string      `json:"message,omitempty"`
+	// LastRateLimitInterval is the interval at which the server last
+	// answered "too many requests" (LastRateLimitAt); restarts keep the
+	// interval above it for a while.
+	LastRateLimitInterval string     `json:"last_rate_limit_interval,omitempty"`
+	LastRateLimitAt       time.Time  `json:"last_rate_limit_at,omitzero"`
+	LastEvent             *EventJSON `json:"last_event,omitempty"`
+	Message               string     `json:"message,omitempty"`
 }
 
 // EventJSON is an AccessEvent with readable durations.

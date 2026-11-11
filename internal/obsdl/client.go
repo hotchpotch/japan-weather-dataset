@@ -41,8 +41,24 @@ var (
 type Options struct {
 	BaseURL   string
 	UserAgent string
-	// MinInterval is the minimum time between the start of two requests.
+	// Interval is the initial pause between the end of a response and the
+	// next request. It is doubled when the server reports that it is busy
+	// and lowered again by SpeedUpStep after SpeedUpAfter successful
+	// requests in a row, down to MinInterval.
+	Interval time.Duration
+	// MinInterval is the lower bound of the adaptive interval. 0 or a value
+	// >= Interval keeps the interval from going below Interval.
 	MinInterval time.Duration
+	// SpeedUpAfter and SpeedUpStep control how the interval comes down.
+	SpeedUpAfter int
+	SpeedUpStep  time.Duration
+	// HitHold is how long after a rate-limited response the interval stays
+	// above the interval at which it happened (plus SpeedUpStep*2).
+	HitHold time.Duration
+	// SlowResponse: a response slower than this resets the run of
+	// successes, so the interval does not come down while the server is
+	// busy.
+	SlowResponse time.Duration
 	// Timeout of a single HTTP request.
 	Timeout time.Duration
 	// MaxRetries for transient failures (network errors, 5xx, error pages).
@@ -67,9 +83,13 @@ type Client struct {
 	opts Options
 	http *http.Client
 
-	mu      sync.Mutex
-	last    time.Time
-	session bool
+	mu       sync.Mutex
+	last     time.Time // end of the previous response
+	interval time.Duration
+	okStreak int
+	hitIv    time.Duration // interval at the last rate-limited response
+	hitAt    time.Time
+	session  bool
 }
 
 func NewClient(opts Options) *Client {
@@ -88,6 +108,21 @@ func NewClient(opts Options) *Client {
 	if opts.MaxInterval == 0 {
 		opts.MaxInterval = time.Minute
 	}
+	if opts.MinInterval <= 0 || opts.MinInterval > opts.Interval {
+		opts.MinInterval = opts.Interval
+	}
+	if opts.SpeedUpAfter == 0 {
+		opts.SpeedUpAfter = 50
+	}
+	if opts.SpeedUpStep == 0 {
+		opts.SpeedUpStep = 500 * time.Millisecond
+	}
+	if opts.HitHold == 0 {
+		opts.HitHold = time.Hour
+	}
+	if opts.SlowResponse == 0 {
+		opts.SlowResponse = 30 * time.Second
+	}
 	if opts.RateLimitBase == 0 {
 		opts.RateLimitBase = time.Minute
 	}
@@ -101,13 +136,14 @@ func NewClient(opts Options) *Client {
 		opts.Logger = slog.Default()
 	}
 	jar, _ := cookiejar.New(nil)
-	return &Client{opts: opts, http: &http.Client{Timeout: opts.Timeout, Jar: jar}}
+	return &Client{opts: opts, interval: opts.Interval, http: &http.Client{Timeout: opts.Timeout, Jar: jar}}
 }
 
-// wait blocks until MinInterval has passed since the previous request.
+// wait blocks until the interval has passed since the end of the previous
+// response. Measuring from the end keeps a pause after slow responses.
 func (c *Client) wait(ctx context.Context) error {
 	c.mu.Lock()
-	next := c.last.Add(c.opts.MinInterval)
+	next := c.last.Add(c.interval)
 	now := time.Now()
 	if next.Before(now) {
 		next = now
@@ -165,10 +201,12 @@ func (c *Client) ensureSession(ctx context.Context) error {
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
+		c.done()
 		return err
 	}
 	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
+	c.done()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("obsdl: GET index.php: HTTP %d", resp.StatusCode)
 	}
@@ -178,24 +216,83 @@ func (c *Client) ensureSession(ctx context.Context) error {
 	return nil
 }
 
-// slowDown doubles the interval between requests for the rest of the run
-// after the server reported that it is busy, and returns the new interval.
+// done records the end of a response; the next request waits from here.
+func (c *Client) done() {
+	c.mu.Lock()
+	if now := time.Now(); now.After(c.last) {
+		c.last = now
+	}
+	c.mu.Unlock()
+}
+
+// slowDown doubles the interval between requests after the server reported
+// that it is busy, and returns the new interval.
 func (c *Client) slowDown() (time.Duration, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	next := min(max(c.opts.MinInterval*2, time.Second), c.opts.MaxInterval)
-	if next <= c.opts.MinInterval {
-		return c.opts.MinInterval, false
+	c.okStreak = 0
+	c.hitIv, c.hitAt = c.interval, time.Now()
+	next := min(max(c.interval*2, time.Second), c.opts.MaxInterval)
+	if next <= c.interval {
+		return c.interval, false
 	}
-	c.opts.MinInterval = next
+	c.interval = next
 	return next, true
 }
 
-// Interval returns the current minimum interval between requests.
+// speedUp lowers the interval by SpeedUpStep after SpeedUpAfter fast
+// successful requests in a row, not below MinInterval and, within HitHold
+// of the last rate-limited response, not below the interval at which it
+// happened plus two steps.
+func (c *Client) speedUp(dur time.Duration) (time.Duration, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if dur > c.opts.SlowResponse {
+		c.okStreak = 0
+		return c.interval, false
+	}
+	c.okStreak++
+	if c.okStreak < c.opts.SpeedUpAfter {
+		return c.interval, false
+	}
+	c.okStreak = 0
+	floor := c.opts.MinInterval
+	if !c.hitAt.IsZero() && time.Since(c.hitAt) < c.opts.HitHold {
+		floor = max(floor, c.hitIv+2*c.opts.SpeedUpStep)
+	}
+	next := max(c.interval-c.opts.SpeedUpStep, floor)
+	if next >= c.interval {
+		return c.interval, false
+	}
+	c.interval = next
+	return next, true
+}
+
+// Interval returns the current interval between requests.
 func (c *Client) Interval() time.Duration {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.opts.MinInterval
+	return c.interval
+}
+
+// LastRateLimit returns the interval at the last rate-limited response and
+// its time (zero if none in this run).
+func (c *Client) LastRateLimit() (time.Duration, time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.hitIv, c.hitAt
+}
+
+// RestoreRateLimit sets the interval and the last rate-limited response
+// remembered from an earlier run, so that a restart does not start faster
+// than the server allowed. The interval is clamped to [Interval, MaxInterval].
+func (c *Client) RestoreRateLimit(interval, hitInterval time.Duration, hitAt time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.interval = min(max(interval, c.interval), c.opts.MaxInterval)
+	if time.Since(hitAt) < c.opts.HitHold {
+		c.hitIv, c.hitAt = hitInterval, hitAt
+	}
 }
 
 func (c *Client) emit(ev AccessEvent) {
@@ -208,6 +305,8 @@ func (c *Client) emit(ev AccessEvent) {
 		c.opts.Logger.Error("obsdl access restricted", attrs...)
 	case EventRecovered:
 		c.opts.Logger.Info("obsdl access recovered", attrs...)
+	case EventSpedUp:
+		c.opts.Logger.Info("obsdl interval lowered", attrs...)
 	default:
 		c.opts.Logger.Warn("obsdl access limited", attrs...)
 	}
@@ -283,6 +382,10 @@ func (c *Client) do(ctx context.Context, path string, form url.Values, wantAttac
 		if err == nil {
 			if rateHits > 0 {
 				c.emit(AccessEvent{Kind: EventRecovered, Path: path, HTTPStatus: resp.StatusCode, Hits: rateHits})
+			} else if serverErrors == 0 && attempt == 0 {
+				if _, lowered := c.speedUp(resp.Duration); lowered {
+					c.emit(AccessEvent{Kind: EventSpedUp, Path: path, HTTPStatus: resp.StatusCode})
+				}
 			}
 			return resp, nil
 		}
@@ -318,6 +421,9 @@ func (c *Client) do(ctx context.Context, path string, form url.Values, wantAttac
 			return nil, err
 		case errors.Is(err, ErrServer):
 			serverErrors++
+			c.mu.Lock()
+			c.okStreak = 0 // the server is struggling: do not speed up yet
+			c.mu.Unlock()
 			if serverErrors >= 2 {
 				return nil, err
 			}
@@ -359,10 +465,12 @@ func (c *Client) once(ctx context.Context, path string, form url.Values, wantAtt
 	start := time.Now()
 	resp, err := c.http.Do(req)
 	if err != nil {
+		c.done()
 		return nil, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
+	c.done()
 	if err != nil {
 		return nil, err
 	}
