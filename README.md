@@ -26,6 +26,52 @@ update of the current month (`jwd month`) and the monthly run (`jwd monthly`),
 both on GitHub Actions from a released Docker image, and the planned parts
 (JMA's corrections, `jwd latest`).
 
+## Using the dataset
+
+The dataset is on the Hugging Face Hub:
+[hotchpotch/japan-weather](https://huggingface.co/datasets/hotchpotch/japan-weather)
+(daily values from 1872 and hourly values from 1885 to yesterday, updated
+every day). Download the parts you need and query them with DuckDB:
+
+```sh
+.agents/skills/japan-weather/scripts/sync.sh daily   # into ~/.cache/japan-weather/data; ~215 MB; or daily:2020-2026, hourly:2025
+duckdb -c "SELECT date, temperature_max FROM read_parquet('~/.cache/japan-weather/data/daily/*/*.parquet', hive_partitioning = false)
+           WHERE station_id = 's47662' AND date >= DATE '2025-08-01' ORDER BY date LIMIT 5"
+```
+
+[docs/local-copy.md](docs/local-copy.md) describes how fresh the Hub is,
+how to keep a local copy up to date and how to fetch days newer than the
+Hub yourself (`jwd month`, with Go or Docker).
+
+### With AI agents (skills)
+
+The [`japan-weather`](.agents/skills/japan-weather/SKILL.md) skill teaches
+coding agents the dataset: what it covers, daily vs hourly, how to download
+only the needed parts, the columns, SQL recipes and the pitfalls of
+long-term comparisons (quality flags, homogeneity breaks, the AMeDAS 2003
+step of daily max/min temperature, …). It follows the
+[Agent Skills](https://agentskills.io/specification) format.
+
+- **In this repository:** nothing to install. Codex reads
+  `.agents/skills/`, Claude Code reads `.claude/skills/` (a symlink to the
+  same directory). Ask for an analysis, or invoke the skill explicitly with
+  `/japan-weather` (Claude Code) or `$japan-weather` (Codex).
+- **In another project** (copies the skill into that project):
+
+  ```sh
+  npx skills add hotchpotch/japan-weather-dataset --skill japan-weather
+  ```
+
+  ([vercel-labs/skills](https://github.com/vercel-labs/skills); asks for
+  the agents to install for, `-g` installs for the user instead of the
+  project). In Codex, the built-in installer also works:
+  `$skill-installer install https://github.com/hotchpotch/japan-weather-dataset/tree/main/.agents/skills/japan-weather`.
+- **By hand:** copy `.agents/skills/japan-weather/` to
+  `~/.claude/skills/japan-weather/` (Claude Code) or
+  `~/.agents/skills/japan-weather/` (Codex), or into `.claude/skills/` /
+  `.agents/skills/` of a project. Restart the agent if the skill does not
+  show up.
+
 ## Build
 
 ```sh

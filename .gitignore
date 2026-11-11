@@ -5,3 +5,7 @@ tmp/
 output/
 *.tmp
 .env
+
+# Claude Code: only the skills are part of the repository
+/.claude/*
+!/.claude/skills/
