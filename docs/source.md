@@ -134,7 +134,9 @@ numbers (see `homogeneity_breaks`).
 Content of the JMA website is available under the 公共データ利用規約（第1.0版）
 (PDL 1.0), compatible with CC BY 4.0
 (<https://www.jma.go.jp/jma/kishou/info/coment.html>). Required: the source
-(出典) and, for processed content, a statement that it was processed; do not
-make processed content look as if the government created it. The
+(出典) and, for processed content, a statement that it was processed and by
+whom (PDL 1.0, 1.1.2); do not make processed content look as if the
+government created it. The published dataset names Yuichi Tateno
+(@hotchpotch) as the processor. The
 restrictions of the 気象業務法 concern forecasts and warnings, not past
 observations.

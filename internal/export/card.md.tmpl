@@ -46,7 +46,7 @@ original service.
 
 ## 出典・ライセンス
 
-出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）を加工して作成
+出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに Yuichi Tateno (@hotchpotch) が加工して作成
 
 The source data is published under the
 [公共データ利用規約（第1.0版） / Public Data License 1.0](https://www.digital.go.jp/resources/open_data/public_data_license_v1.0)
@@ -54,8 +54,14 @@ as stated in the [JMA website terms](https://www.jma.go.jp/jma/kishou/info/comen
 PDL 1.0 is compatible with CC BY 4.0, and the government permits use of the
 content under CC BY 4.0; this dataset is distributed under CC BY 4.0.
 
+Processed by Yuichi Tateno (@hotchpotch): the CSV files of the source service
+are combined across stations and periods and converted to Parquet tables with
+English column names (see the columns below).
+
 When you use this dataset, credit the source as above and state that it was
-processed. Do not present processed data as if the government created it.
+processed. If you process it further and publish the results, state that you
+processed it, for example 「出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに○○が加工して作成」.
+Do not present processed data as if the government created it.
 
 ## Usage
 

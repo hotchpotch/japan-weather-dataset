@@ -136,3 +136,33 @@ func TestExportLayout(t *testing.T) {
 		t.Errorf("year=2027 has no rows before the recent months; data.parquet must not exist (%v)", err)
 	}
 }
+
+// The card credits the source and names who processed it (PDL 1.0, 1.1.2).
+func TestCardCredit(t *testing.T) {
+	ctx := context.Background()
+	s, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	out := t.TempDir()
+	addDay(t, s, date(2026, 11, 5))
+	ex := &Exporter{Store: s, Out: out, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	if err := ex.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(out, "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	card := string(b)
+	for _, want := range []string{
+		"license: cc-by-4.0",
+		"出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに Yuichi Tateno (@hotchpotch) が加工して作成",
+		"public_data_license_v1.0",
+	} {
+		if !strings.Contains(card, want) {
+			t.Errorf("card lacks %q", want)
+		}
+	}
+}

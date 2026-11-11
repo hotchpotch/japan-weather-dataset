@@ -1,1 +1,7 @@
 # HEAD
+
+- The dataset card's credit names the processor, Yuichi Tateno
+  (@hotchpotch), as PDL 1.0 (1.1.2) asks for processed content. The card
+  and the agent skill ask users who publish results to credit JMA and
+  name themselves as the processor, and not to present results as made by
+  JMA or the government.

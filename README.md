@@ -145,12 +145,13 @@ Exit codes: 0 ok, 1 error, 3 rate limited, 4 access blocked, 5 maintenance,
 The data comes from the JMA website and is available under the
 公共データ利用規約（第1.0版） (PDL 1.0, compatible with CC BY 4.0). When
 publishing data built with this tool, write the source and that it was
-processed, for example:
+processed and by whom (PDL 1.0, 1.1.2), for example:
 
-> 出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）を加工して作成
+> 出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに（加工者の名前）が加工して作成
 
 and do not present it as if JMA or the government published it. The
-generated dataset card includes this notice.
+dataset published on the Hugging Face Hub is processed by Yuichi Tateno
+(@hotchpotch), and its generated card carries that notice.
 
 This project is not affiliated with JMA.
 
