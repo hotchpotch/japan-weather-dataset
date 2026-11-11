@@ -67,7 +67,7 @@ To run them elsewhere, put the settings into `.env` in the repository root
 (not committed) or the environment:
 
 ```sh
-JWD_IMAGE=ghcr.io/hotchpotch/japan-weather-dataset:v0.1.1
+JWD_IMAGE=ghcr.io/hotchpotch/japan-weather-dataset:v0.1.2
 JWD_DATA_DIR=/data/jwd          # crawl state (backfill, update, export)
 JWD_EXPORT_DIR=/data/work       # work directory of the scripts
 HF_DATASET_REPO=<user>/<dataset>
