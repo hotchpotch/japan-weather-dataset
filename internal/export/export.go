@@ -108,8 +108,8 @@ func MonthPath(out string, f obsdl.Frequency, m time.Time) string {
 	return filepath.Join(out, string(f), fmt.Sprintf("year=%d", m.Year()), m.Format("2006-01")+".parquet")
 }
 
-// monthFiles returns the month files of a frequency in a dataset directory.
-func monthFiles(out string, f obsdl.Frequency) (map[time.Time]string, error) {
+// MonthFiles returns the month files of a frequency in a dataset directory.
+func MonthFiles(out string, f obsdl.Frequency) (map[time.Time]string, error) {
 	paths, err := filepath.Glob(filepath.Join(out, string(f), "year=*", "????-??.parquet"))
 	if err != nil {
 		return nil, err
@@ -123,6 +123,32 @@ func monthFiles(out string, f obsdl.Frequency) (map[time.Time]string, error) {
 		res[m] = p
 	}
 	return res, nil
+}
+
+// YearFiles returns the files of year y of a frequency in a dataset
+// directory: the year file, if any, and the month files of y.
+func YearFiles(out string, f obsdl.Frequency, y int) ([]string, error) {
+	var paths []string
+	if _, err := os.Stat(YearPath(out, f, y)); err == nil {
+		paths = append(paths, YearPath(out, f, y))
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+	months, err := MonthFiles(out, f)
+	if err != nil {
+		return nil, err
+	}
+	var keys []time.Time
+	for m := range months {
+		if m.Year() == y {
+			keys = append(keys, m)
+		}
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i].Before(keys[j]) })
+	for _, m := range keys {
+		paths = append(paths, months[m])
+	}
+	return paths, nil
 }
 
 // rowsSQL selects the rows of year y from the chunks with updated_at.
@@ -210,7 +236,7 @@ func (e *Exporter) exportYear(ctx context.Context, f obsdl.Frequency, y int, mon
 		}
 		parts = append(parts, m.Format("2006-01"), mn)
 	}
-	existing, err := monthFiles(e.Out, f)
+	existing, err := MonthFiles(e.Out, f)
 	if err != nil {
 		return err
 	}
@@ -272,7 +298,7 @@ func (e *Exporter) years(ctx context.Context, f obsdl.Frequency, months []time.T
 		recent[m] = true
 		set[m.Year()] = true
 	}
-	existing, err := monthFiles(e.Out, f)
+	existing, err := MonthFiles(e.Out, f)
 	if err != nil {
 		return nil, err
 	}
@@ -328,9 +354,15 @@ func columns(f obsdl.Frequency) []cardColumn {
 	return append(out, cardColumn{"updated_at", "TIMESTAMPTZ", store.UpdatedAtDescription})
 }
 
+// yearSpan is the range of years with data: from the chunks and from the
+// probed coverage of the stations, so that a partial state (the monthly
+// command loads only the recent years) still gives the whole range.
 func (e *Exporter) yearSpan(ctx context.Context, f obsdl.Frequency) string {
 	var lo, hi *int
-	err := e.Store.DB.QueryRowContext(ctx, `SELECT min(year), max(year) FROM chunks WHERE frequency = ? AND rows > 0`, string(f)).Scan(&lo, &hi)
+	err := e.Store.DB.QueryRowContext(ctx, `SELECT min(y0), max(y1) FROM (
+	SELECT year AS y0, year AS y1 FROM chunks WHERE frequency = $1 AND rows > 0
+	UNION ALL
+	SELECT first_year, last_year FROM coverage WHERE frequency = $1 AND first_year > 0)`, string(f)).Scan(&lo, &hi)
 	if err != nil || lo == nil {
 		return "-"
 	}

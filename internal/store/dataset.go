@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/hotchpotch/japan-weather-dataset/internal/obsdl"
 )
 
 // The functions below seed a fresh state directory from a published dataset
-// (stations/stations.parquet and month files), so that the current month can
-// be updated without the full crawl state (see the month command).
+// (stations, homogeneity breaks, year and month files), so that recent
+// months can be updated without the full crawl state (see the month and
+// monthly commands).
 
 // ImportStations loads stations and their coverage from a stations.parquet
 // written by export. Stations without observed_categories were never probed
@@ -39,10 +41,33 @@ WHERE observed_categories IS NOT NULL`, src, ts),
 	return nil
 }
 
-// ImportRows splits an exported file (rows of any stations and dates, with
+// ImportBreaks loads the homogeneity breaks of a homogeneity_breaks.parquet
+// written by export. Fetches replace the breaks of the days they cover.
+func (s *Store) ImportBreaks(ctx context.Context, path string) error {
+	_, err := s.DB.ExecContext(ctx, fmt.Sprintf(`INSERT INTO breaks
+SELECT station_id, frequency, element, date, hour FROM read_parquet(%s, hive_partitioning = false)`, sqlString(path)))
+	if err != nil {
+		return fmt.Errorf("import breaks from %s: %w", path, err)
+	}
+	return nil
+}
+
+// ImportRows splits exported files (rows of any stations and dates, with
 // updated_at) into chunks, so that later fetches merge with these rows like
-// with rows fetched before. It returns the number of rows.
-func (s *Store) ImportRows(ctx context.Context, f obsdl.Frequency, path string) (int, error) {
+// with rows fetched before. The files of a year (its year file and month
+// files) must be imported in one call: a chunk holds a station-year and is
+// replaced by each call. It returns the number of rows.
+func (s *Store) ImportRows(ctx context.Context, f obsdl.Frequency, paths ...string) (int, error) {
+	if len(paths) == 0 {
+		return 0, nil
+	}
+	list := ""
+	for i, p := range paths {
+		if i > 0 {
+			list += ", "
+		}
+		list += sqlString(p)
+	}
 	conn, err := s.DB.Conn(ctx)
 	if err != nil {
 		return 0, err
@@ -50,8 +75,8 @@ func (s *Store) ImportRows(ctx context.Context, f obsdl.Frequency, path string) 
 	defer conn.Close()
 	table := "import_" + string(f)
 	if _, err := conn.ExecContext(ctx, fmt.Sprintf(`CREATE OR REPLACE TEMP TABLE %s AS
-SELECT * FROM read_parquet(%s, hive_partitioning = false)`, table, sqlString(path))); err != nil {
-		return 0, fmt.Errorf("read %s: %w", path, err)
+SELECT * FROM read_parquet([%s], hive_partitioning = false, union_by_name = true)`, table, list)); err != nil {
+		return 0, fmt.Errorf("read %s: %w", strings.Join(paths, ", "), err)
 	}
 	defer conn.ExecContext(context.WithoutCancel(ctx), "DROP TABLE IF EXISTS "+table)
 	rows, err := conn.QueryContext(ctx, fmt.Sprintf(`SELECT station_id, year(date)::INTEGER, min(date), max(date), count(*)::INTEGER, max(updated_at)

@@ -6,10 +6,10 @@ from JMA's 「過去の気象データ・ダウンロード」 service and turns
 Parquet dataset that can be published on Hugging Face and queried with SQL.
 
 - One static binary (Go + embedded DuckDB).
-- Resumable full backfill, then a daily update of the current month that
-  runs on GitHub Actions without the crawl state, and a monthly run that
-  fetches the last months again and refreshes old years to pick up JMA's
-  later corrections.
+- Resumable full backfill, then updates that run on GitHub Actions without
+  the crawl state: daily for the current month, and monthly to fetch the
+  last two months again after they ended and move the oldest into its year
+  file.
 - Polite to the source: one request at a time, a pause of 6 s after each
   response that adapts between 3 s and 60 s (doubled on HTTP 429, lowered
   slowly while there are none), requests packed up to the server's size limit,
@@ -22,9 +22,9 @@ Parquet dataset that can be published on Hugging Face and queried with SQL.
 See [docs/source.md](docs/source.md) for how the source service works and
 [docs/dataset.md](docs/dataset.md) for the dataset layout and the update strategy.
 [docs/operations.md](docs/operations.md) describes the operation: the daily
-update of the current month on GitHub Actions (`jwd month`), the monthly run
-on the crawl machine (`jwd monthly`), both from a released Docker image, and
-the planned parts (JMA's corrections, `jwd latest`).
+update of the current month (`jwd month`) and the monthly run (`jwd monthly`),
+both on GitHub Actions from a released Docker image, and the planned parts
+(JMA's corrections, `jwd latest`).
 
 ## Build
 
@@ -55,40 +55,34 @@ errors, persistent rate limiting or the own quota, and stops on a block or
 maintenance. `backfill -dry-run` prints the plan, `-max-jobs N` limits a run,
 `-stations` and `-from-year` / `-to-year` narrow it.
 
-The updates run from a released image
+The updates run on GitHub Actions (`.github/workflows/month.yml` daily,
+`monthly.yml` on the 2nd of each month) from a released image
 (`ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z`, built by
 `.github/workflows/release.yml` for a tag; see
-[docs/release.md](docs/release.md)). Settings go into
-`.env` in the repository root (not committed):
+[docs/release.md](docs/release.md)). Neither needs the crawl state: they
+download what they need from the Hub, run `jwd month` / `jwd monthly` on
+it and upload what changed ([docs/operations.md](docs/operations.md)).
+
+To run them elsewhere, put the settings into `.env` in the repository root
+(not committed) or the environment:
 
 ```sh
-JWD_IMAGE=ghcr.io/hotchpotch/japan-weather-dataset:v0.1.0
-JWD_DATA_DIR=/data/jwd          # crawl state
-JWD_EXPORT_DIR=/data/dataset    # dataset directory
+JWD_IMAGE=ghcr.io/hotchpotch/japan-weather-dataset:v0.1.1
+JWD_DATA_DIR=/data/jwd          # crawl state (backfill, update, export)
+JWD_EXPORT_DIR=/data/work       # work directory of the scripts
 HF_DATASET_REPO=<user>/<dataset>
 HF_TOKEN=...                    # write access to that dataset only
 ```
 
-Monthly run on the crawl machine (the 2nd of each month, ~05:00 JST;
-stations, the last two months again, 1/24 of the older years again,
-export, upload; see [docs/operations.md](docs/operations.md#monthly-update)),
-e.g. from cron (`0 20 1 * *` on a UTC host):
-
 ```sh
-scripts/jwd-docker.sh jwd-monthly.sh
-```
-
-Daily update of the current month without the crawl state (what
-`.github/workflows/month.yml` runs in the image; `JWD_EXPORT_DIR` is a work
-directory here):
-
-```sh
-scripts/jwd-docker.sh jwd-daily.sh   # last 3 days again + up to 3 missing days
+scripts/jwd-docker.sh jwd-daily.sh     # current month: last 3 days again + up to 3 missing days
+scripts/jwd-docker.sh jwd-monthly.sh   # the last two months again, oldest month into its year file
+scripts/jwd-docker.sh jwd-monthly.sh -dry-run
 ```
 
 `scripts/jwd-docker.sh jwd status` and other `jwd` commands run in the image
-the same way. Without Docker, `scripts/jwd-monthly.sh` and
-`scripts/jwd-daily.sh` use `./bin/jwd` and the `hf` CLI (or `uvx`).
+the same way. Without Docker, `scripts/jwd-daily.sh` and
+`scripts/jwd-monthly.sh` use `./bin/jwd` and the `hf` CLI (or `uvx`).
 
 Global flags: `-interval` (initial pause after each response, default 6s),
 `-min-interval` (lower bound of the adaptive pause, default 3s), `-budget` (cells per request,

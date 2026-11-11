@@ -4,7 +4,7 @@ A release is a tag `vX.Y.Z`. `.github/workflows/release.yml` then runs the
 tests, builds the image `ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z`,
 pushes it with the workflow's short-lived `GITHUB_TOKEN` and creates a
 GitHub Release whose notes come from `docs/releases/`. There is no `latest`
-tag: the daily workflow and the crawl machine name the version they run
+tag: the workflows (`month.yml`, `monthly.yml`) name the version they run
 (`JWD_IMAGE`), so a release changes nothing until they are switched to it.
 A published version is never replaced, and a tag is never moved or reused.
 
@@ -53,17 +53,19 @@ on pull requests.
    The workflow fails without changing anything when the tag does not
    match `version`, `docs/releases/vX.Y.Z.md` is missing or the image
    exists already.
-5. Switch the runs to the new image:
-   - `JWD_IMAGE` in `.github/workflows/month.yml` (commit and push);
-   - `JWD_IMAGE` in `.env` on the crawl machine, then
-     `scripts/jwd-docker.sh jwd version`.
-6. Run the `month` workflow by hand (`gh workflow run month`) and check its
-   upload.
+5. Switch the workflows to the new image: `JWD_IMAGE` in
+   `.github/workflows/month.yml` and `monthly.yml` (commit and push; not
+   before the image exists, or the next scheduled run fails). Where the
+   scripts run elsewhere, also `JWD_IMAGE` in `.env`.
+6. Run the workflows by hand and check the uploads:
+   `gh workflow run month`, and `gh workflow run monthly -f dry_run=true`
+   (a real monthly run refetches about two months; run it only when that
+   is intended).
 
 ## Image access
 
-The image is private while the repository is. The `month` workflow pulls it
-with its `GITHUB_TOKEN` (`packages: read`). The crawl machine needs
+The image is private while the repository is. The workflows pull it with
+their `GITHUB_TOKEN` (`packages: read`). Another machine needs
 `docker login ghcr.io` with a token that can read packages: a classic
 token with only `read:packages` (fine-grained tokens cannot read GitHub
 Packages). Once the repository is public, make the package public in its

@@ -10,8 +10,8 @@ Hugging Face Hub. Read before changing things:
   limits.
 - [docs/dataset.md](docs/dataset.md): layout, columns, update strategy,
   access restrictions.
-- [docs/operations.md](docs/operations.md): the daily (GitHub Actions) and
-  monthly (crawl machine) updates.
+- [docs/operations.md](docs/operations.md): the daily and monthly updates
+  (GitHub Actions, without the crawl state).
 - [docs/release.md](docs/release.md): releases and the image.
 
 ## Requests to JMA

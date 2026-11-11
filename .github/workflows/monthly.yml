@@ -1,0 +1,60 @@
+# Monthly update of the Hugging Face dataset (docs/operations.md, "Monthly
+# update"): runs scripts/jwd-monthly.sh in the released image JWD_IMAGE.
+# The month before last and the last month are fetched again after they
+# ended, the oldest month file goes into its year file, the station list is
+# refreshed. About 260 requests; no crawl state.
+#
+# Needs the repository variable HF_DATASET_REPO and the secret HF_TOKEN
+# (write access to that dataset), like month.yml.
+name: monthly
+
+on:
+  schedule:
+    - cron: "17 21 1 * *" # the 2nd, 06:17 JST: after the daily run of the 2nd
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "print the plan only: no requests to JMA, no upload"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: read
+
+# The same group as month.yml: both rewrite manifest.json and the month
+# files, so they run one after the other.
+concurrency:
+  group: hf-dataset
+  cancel-in-progress: false
+
+env:
+  # A released tag (release.yml); change it to use a new release.
+  JWD_IMAGE: ghcr.io/hotchpotch/japan-weather-dataset:v0.1.1
+
+jobs:
+  monthly:
+    # Forks must not send requests to JMA on a schedule.
+    if: github.repository == 'hotchpotch/japan-weather-dataset'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 300
+    steps:
+      - name: Pull the image
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker pull "$JWD_IMAGE"
+
+      - name: Monthly update
+        env:
+          HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run && '-dry-run' || '' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/dataset"
+          # shellcheck disable=SC2086 # DRY_RUN is empty or one flag
+          docker run --rm --init --user "$(id -u):$(id -g)" \
+            -e HF_DATASET_REPO -e HF_TOKEN \
+            -v "$RUNNER_TEMP/dataset:/dataset" "$JWD_IMAGE" \
+            jwd-monthly.sh $DRY_RUN

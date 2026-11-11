@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Runs a command of the jwd image on this machine with the crawl state and
-# the dataset directory mounted (docs/operations.md):
+# the dataset (or work) directory mounted (docs/operations.md):
 #
-#   scripts/jwd-docker.sh jwd-monthly.sh          # the monthly run
+#   scripts/jwd-docker.sh jwd-monthly.sh          # what monthly.yml runs
+#   scripts/jwd-docker.sh jwd-daily.sh            # what month.yml runs
 #   scripts/jwd-docker.sh jwd status
 #
 # Settings from the environment or .env in the repository root: JWD_IMAGE
-# (e.g. ghcr.io/hotchpotch/japan-weather-dataset:v0.1.0), JWD_DATA_DIR and
+# (e.g. ghcr.io/hotchpotch/japan-weather-dataset:v0.1.1), JWD_DATA_DIR and
 # JWD_EXPORT_DIR (host directories, mounted at /data and /dataset),
 # HF_DATASET_REPO and HF_TOKEN (passed on). The container runs as the
 # calling user.
@@ -19,7 +20,7 @@ if [ -f "$root/.env" ]; then
   . "$root/.env"
   set +a
 fi
-image=${JWD_IMAGE:?JWD_IMAGE is not set (e.g. ghcr.io/hotchpotch/japan-weather-dataset:v0.1.0)}
+image=${JWD_IMAGE:?JWD_IMAGE is not set (e.g. ghcr.io/hotchpotch/japan-weather-dataset:v0.1.1)}
 data=${JWD_DATA_DIR:?JWD_DATA_DIR is not set}
 out=${JWD_EXPORT_DIR:?JWD_EXPORT_DIR is not set}
 if [ $# -eq 0 ]; then

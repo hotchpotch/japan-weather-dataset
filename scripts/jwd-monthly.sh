@@ -1,20 +1,16 @@
 #!/usr/bin/env bash
-# The monthly run on the machine with the crawl state (docs/operations.md):
-# jwd monthly, then upload the dataset to the Hugging Face Hub.
+# The monthly run (docs/operations.md): download from the Hugging Face Hub
+# what jwd monthly needs (the metadata, all month files and the year files
+# of the recent years), run it and upload what it wrote, deleting the month
+# file that went into its year file. No crawl state is needed.
 #
-#   JWD_DATA_DIR=/data/jwd scripts/jwd-monthly.sh ./bin/jwd <user>/<dataset> /data/dataset [jwd monthly flags]
 #   scripts/jwd-monthly.sh [jwd monthly flags]
 #
-# Without the three arguments, they default to ./bin/jwd, $HF_DATASET_REPO
-# and $JWD_EXPORT_DIR, read from the environment or from .env in the
-# repository root (KEY=value lines; see README).
-#
-# Run it on the 2nd of each month around 05:00 JST (e.g. from cron). The
-# upload deletes month files on the Hub that are no longer in the dataset
-# directory (they went into a year file). Data that was fetched before a
-# failure is uploaded as well; the script then exits with jwd's exit code
-# (see README). Needs `hf` (pip install huggingface_hub; without it,
-# a pinned huggingface_hub is run with uvx) logged in or HF_TOKEN set.
+# Settings from the environment or .env in the repository root:
+# HF_DATASET_REPO (required), HF_TOKEN (otherwise the token of
+# `hf auth login`), JWD_EXPORT_DIR (work directory, default ./dataset).
+# Nothing is uploaded when jwd fails or with -dry-run. Exits with jwd's exit
+# code (see README).
 set -u
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -24,42 +20,52 @@ if [ -f "$root/.env" ]; then
   . "$root/.env"
   set +a
 fi
-if [ $# -ge 3 ] && [ "${1#-}" = "$1" ]; then
-  jwd=$1 repo=$2 out=$3
-  shift 3
-else
-  jwd=$root/bin/jwd repo=${HF_DATASET_REPO:-} out=${JWD_EXPORT_DIR:-}
-fi
-if [ -z "$repo" ] || [ -z "$out" ]; then
-  echo "usage: $0 <jwd> <hf-repo> <dataset-dir> [jwd monthly flags]" >&2
-  echo "   or: $0 [jwd monthly flags] with HF_DATASET_REPO and JWD_EXPORT_DIR set (e.g. in .env)" >&2
-  exit 2
-fi
-
+repo=${HF_DATASET_REPO:?HF_DATASET_REPO is not set}
+out=${JWD_EXPORT_DIR:-dataset}
+if [ -x "$root/bin/jwd" ]; then jwd=$root/bin/jwd; else jwd=jwd; fi
 if command -v hf >/dev/null; then
   hf=(hf)
 else
   hf=(uvx --exclude-newer 2026-11-12T00:00:00Z --from huggingface_hub==2.4.0 hf)
 fi
+dry=false
+for a in "$@"; do
+  case "$a" in -dry-run | --dry-run | -dry-run=true | --dry-run=true) dry=true ;; esac
+done
 
 log() { echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') jwd-monthly: $*" >&2; }
 
-started=$(date +%s)
-"$jwd" -interval 6s -min-interval 5s monthly -out "$out" "$@"
+# The years jwd monthly reads (crawl.MonthlyYears): from the year of the
+# first day of the month two months before yesterday's month (JST) to
+# yesterday's year.
+month=$(TZ=Asia/Tokyo date -d yesterday +%Y-%m-01)
+from_year=$(date -d "$month -2 months" +%Y)
+to_year=${month%%-*}
+include=(--include manifest.json --include stations/stations.parquet
+  --include homogeneity_breaks/homogeneity_breaks.parquet
+  --include "daily/year=*/????-??.parquet" --include "hourly/year=*/????-??.parquet")
+for ((y = from_year; y <= to_year; y++)); do
+  include+=(--include "daily/year=$y/data.parquet" --include "hourly/year=$y/data.parquet")
+done
+
+log "downloading the metadata, the month files and the year files $from_year-$to_year from $repo"
+mkdir -p "$out"
+"${hf[@]}" download "$repo" --repo-type dataset --local-dir "$out" "${include[@]}" >/dev/null || exit 1
+
+"$jwd" -interval 6s -min-interval 5s monthly -dataset "$out" "$@"
 code=$?
 log "jwd monthly exit=$code"
-if [ "$code" -eq 130 ] || [ "$code" -eq 2 ]; then
-  exit "$code"
-fi
-if [ ! -f "$out/manifest.json" ] || [ "$(stat -c %Y "$out/manifest.json")" -lt "$started" ]; then
-  log "nothing exported; not uploading"
+if [ "$code" -ne 0 ] || [ "$dry" = true ]; then
   exit "$code"
 fi
 
-latest=$(sed -n 's/.*"latest_date": "\([0-9-]*\)".*/\1/p' "$out/manifest.json" | head -1)
-log "uploading $out to $repo (latest $latest)"
+latest=$(jq -r '.daily.latest_date // "-"' "$out/manifest.json")
+log "uploading to $repo (latest $latest)"
+# Only the downloaded and written files are in $out; unchanged ones are
+# skipped by the Hub client. Month files that are no longer here went into
+# a year file and are deleted on the Hub.
 "${hf[@]}" upload "$repo" "$out" . --repo-type dataset \
+  --exclude ".cache/*" \
   --delete "*/year=*/????-??.parquet" \
   --commit-message "Monthly update up to $latest" || exit 1
 log "uploaded"
-exit "$code"

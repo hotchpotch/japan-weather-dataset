@@ -1,8 +1,7 @@
 # Publishes a release for a pushed tag vX.Y.Z (docs/release.md): tests, the
 # image ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z and a GitHub Release
-# with the notes from docs/releases/. No "latest" tag: the daily workflow and
-# the crawl machine name a version, and a published version is never
-# replaced.
+# with the notes from docs/releases/. No "latest" tag: the update workflows
+# name a version, and a published version is never replaced.
 name: release
 
 on:

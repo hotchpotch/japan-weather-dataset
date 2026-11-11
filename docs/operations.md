@@ -1,42 +1,43 @@
 # Operation: daily and monthly updates
 
 > **Status.** Implemented: the file layout with month files, `manifest.json`,
-> `jwd month` with the GitHub Actions workflow, `jwd monthly` with
-> `scripts/jwd-monthly.sh`, and the released image that runs both. Planned, not implemented yet: `jwd refetch`,
+> `jwd month` and `jwd monthly` with their GitHub Actions workflows, and the
+> released image that runs both. Planned, not implemented yet: `jwd refetch`,
 > `jwd corrections` (JMA's announced corrections), `jwd latest`, the
 > `status` column and the `corrections` output (marked "planned" below).
 > When a planned part is implemented, update this document (and README /
 > dataset.md) to describe what was actually built, and remove its "planned"
 > marks.
 
-The published dataset is updated in two places:
+The published dataset is updated by two GitHub Actions workflows, both
+without the crawl state: they download the files they need from the Hub,
+work on them in a temporary state and upload what they wrote.
 
-| | GitHub Actions | machine with the crawl state |
+| | daily | monthly |
 |---|---|---|
-| when | every day, 05:17 JST | the 2nd of each month, ~05:00 JST |
-| command | `jwd-daily.sh` (`jwd month` + download/upload) in the image, from `.github/workflows/month.yml` | `jwd-monthly.sh` (`jwd monthly` + upload) in the image, from `scripts/jwd-docker.sh` (cron) |
-| state | none (temporary) | `state.duckdb` + `chunks/` (~6 GB) |
-| downloads from the Hub | `manifest.json`, `stations.parquet`, the current month files (~5 MB) | nothing (the state is the source) |
-| fetches | the last 3 days of the current month, up to 3 missing days before them | the month before last to yesterday; 1/24 of the older station-years |
-| writes | the current month files, `manifest.json` | everything: year files, month files (and deletes merged ones), stations, homogeneity breaks, card, manifest |
-| requests / time | ~64 / ~8 min | ~200 + ~2,500 / 5–6 h (measured plan, 2026-11) |
+| when | every day, 05:17 JST | the 2nd of each month, 06:17 JST |
+| workflow / script | `month.yml` / `jwd-daily.sh` (`jwd month`) | `monthly.yml` / `jwd-monthly.sh` (`jwd monthly`) |
+| downloads from the Hub | `manifest.json`, `stations.parquet`, the current month files (~5 MB) | the metadata, all month files, the year files of the recent years (~50 MB) |
+| fetches | the last 3 days of the current month, up to 3 missing days before them | the station list; the month before last to yesterday |
+| writes | the current month files, `manifest.json` | the year files of the recent years, month files (deletes the merged one), stations, homogeneity breaks, card, manifest |
+| requests / time | ~64 / ~9 min (measured) | ~260 / ~40 min (planned from 195 + 61 requests) |
 | probes new stations | no | yes |
 
-Their files only meet at the start of a month. The monthly run also
-writes the current month file (from its own fetch of the same days), so
-whichever upload comes last, the file holds fetched values. Both rebuild
-`manifest.json` from the files: the monthly run from all files, the daily
-job from its month files plus the entries of the downloaded manifest for
-files it did not download (entries more than two months before the
-current month are dropped as stale). The monthly upload (hours after the
-daily job of the 2nd) leaves a complete manifest.
+Both rebuild `manifest.json` from the files they have: the monthly run
+from the recent years and all month files, the daily job from its month
+files plus the entries of the downloaded manifest for files it did not
+download (entries more than two months before the current month are
+dropped as stale). They share a concurrency group, so they never run at
+the same time; the monthly run on the 2nd starts after the daily one and
+leaves a complete manifest.
 
 Both run the same released image (see [releases](#releases-and-the-image)),
 so a change reaches them only with a new release.
 
-The crawl machine needs no daily run any more (`jwd update` remains as a
-tool). Users who need values newer than the dataset can add them locally
-(see [latest values](#latest-values-for-users-planned)).
+The crawl state (`jwd backfill`, `jwd update`, `jwd export` on a machine)
+is needed only to build the dataset from scratch. Users who need values
+newer than the dataset can add them locally (see
+[latest values](#latest-values-for-users-planned)).
 
 ## JMA's preliminary and final values
 
@@ -66,8 +67,7 @@ notice. The updates follow this:
 - the last days of the current month are fetched again every day;
 - the month before is fetched again by the monthly run, after it ended;
 - months older than that are in the year files and treated as final;
-- older changes come from the announced corrections and a slow rolling
-  refetch.
+- older changes come from the announced corrections (planned).
 
 ## Files
 
@@ -208,57 +208,52 @@ Notes for a public repository:
 
 ## Monthly update
 
-On the machine with the crawl state, on the 2nd of each month around 05:00
-JST (after JMA's 01:00/03:00 updates), from cron:
+`.github/workflows/monthly.yml` runs on the 2nd of each month at 06:17 JST
+(after the daily job of the 2nd; `workflow_dispatch` with `dry_run` prints
+the plan). It pulls the image `JWD_IMAGE` and runs `scripts/jwd-monthly.sh`
+in it:
 
-```sh
-scripts/jwd-docker.sh jwd-monthly.sh
-```
+1. `hf download` `manifest.json`, `stations/stations.parquet`,
+   `homogeneity_breaks/homogeneity_breaks.parquet`, all month files and the
+   year files of the years `jwd monthly` rewrites: from the year of the
+   month before last to the current year (on 12-02: 2026; on 01-02: 2026
+   and 2027).
+2. `jwd monthly -dataset <dir>`:
+   1. load the stations, the homogeneity breaks and the year and month files
+      of those years into a temporary state (about 30 s for 2026);
+   2. `stations` (61 requests; `-skip-stations` to skip) and a probe of
+      new stations;
+   3. refetch from the first day of the month before last to yesterday for
+      every active station, daily and hourly. On 12-02: 10-01..12-01, so
+      October and November are fetched again after they ended (and days
+      the daily job could not fill are filled); rows that did not change
+      keep their `updated_at`;
+   4. export: October goes into the year file of 2026; November and
+      December are month files; stations, homogeneity breaks, the card and
+      `manifest.json` are rewritten.
+3. `hf upload` the directory with `--delete "*/year=*/????-??.parquet"`,
+   which removes the month file that went into a year file. Files of other
+   years are not in the directory and stay as they are.
 
-`scripts/jwd-docker.sh` runs a command of the image `JWD_IMAGE` with the
-state directory `JWD_DATA_DIR` and the dataset directory `JWD_EXPORT_DIR`
-mounted (settings from `.env`, see README). Without Docker,
-`scripts/jwd-monthly.sh` runs the same with a local `bin/jwd`.
+`jwd monthly` refuses to run when a year file listed by `manifest.json`
+(`year_files_through`) is missing, or a month file is older than the years
+it reads: the export would lose rows. A failure before the export leaves
+the directory as it was and nothing is uploaded; the run can be repeated
+(by hand with `workflow_dispatch`).
 
-It does not run on a GitHub-hosted runner: it takes 5–6 hours (a job may
-run at most 6), and the state (~6 GB) would have to be restored and kept
-between monthly runs (the Actions cache drops entries unused for 7 days).
+Plan measured on 2026-11-11 (`jwd monthly -dry-run` on the 2026 files
+downloaded from the Hub, yesterday 11-10): 195 requests for 09-01..11-10,
+1,287 stations; plus 61 requests for the station list. At about 7 s per
+request that is about 30 minutes, well within the 6 hours of a
+GitHub-hosted job; the downloads are about 50 MB.
 
-`jwd-monthly.sh` runs `jwd monthly -out <dataset-dir>`:
-
-1. `stations` (61 requests; `-skip-stations` to skip) and a probe of
-   stations without coverage.
-2. Refetch from the first day of the month before last to yesterday for
-   every active station, daily and hourly. On 12-02: 10-01..12-01, so
-   October and November are fetched again after they ended (and days the
-   daily job could not fill are filled).
-3. `export`: October goes into the year file; November and December are
-   month files.
-4. Refetch the station-years fetched longest ago: 1/`-refresh-cycle-months`
-   (default 24) of all station-years up to the current year, i.e. the whole
-   archive in two years, to catch corrections that JMA does not announce.
-   Station-years fetched in the last `-refresh-age` (30 days) are skipped.
-5. `export` again.
-
-If step 4 fails (e.g. rate limited), the data fetched so far is exported
-anyway and the error is returned; the next run continues with the
-station-years still fetched longest ago. A failed step 1 or 2 stops before
-the export; run it again (it is safe to repeat).
-
-The script then uploads the dataset directory with
-`hf upload … --delete "*/year=*/????-??.parquet"`, which removes the month
-files that went into a year file; unchanged files are not uploaded again.
-It uploads even after a failure when something was exported, and exits
-with jwd's exit code.
-
-Plan measured on 2026-11-11 (`jwd monthly -dry-run`, yesterday 11-10):
-195 requests for 09-01..11-10 and, with the age limit lifted, 2,509
-requests for the refresh (3,248 of 77,943 daily and 3,114 of 74,731 hourly
-station-years). At about 7 s per request that is 5–6 hours.
+Station-years older than the month before last are not fetched again by
+the updates. Changes JMA makes to them are expected to come with the
+announced corrections (see below). Until those are implemented, a full
+refetch needs the crawl state (`jwd update` with `-refresh-jobs`).
 
 Planned additions to the monthly run: fetch `correctHistory.json` and
-store entries not seen before in a state DB table `corrections` with state
-`pending` (see below).
+record entries not seen before as `pending` (see below).
 
 ## Announced corrections (planned, done by an AI agent)
 
@@ -297,9 +292,10 @@ what was changed and why.
 ## Upload
 
 - Daily (`jwd-daily.sh`): only `manifest.json` and the current month files.
-- Monthly (`jwd-monthly.sh`): the whole dataset directory; files
-  whose content did not change are skipped by the Hub client, month files
-  merged into a year file are deleted.
+- Monthly (`jwd-monthly.sh`): its work directory (the recent years, all
+  month files and the metadata); files whose content did not change are
+  skipped by the Hub client, month files merged into a year file are
+  deleted.
 - The commit message carries the latest date and, once implemented, the
   IDs of the corrections applied.
 
@@ -308,8 +304,8 @@ what was changed and why.
 The `Dockerfile` builds an image with `jwd`, the `hf` CLI and `scripts/`
 (on `PATH`; `JWD_DATA_DIR=/data`, `JWD_EXPORT_DIR=/dataset`). A tag
 `vX.Y.Z` publishes it as `ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z`;
-both updates name the version they run (`JWD_IMAGE` in
-`.github/workflows/month.yml` and in `.env` on the crawl machine). See
+both workflows name the version they run (`JWD_IMAGE` in `month.yml` and
+`monthly.yml`). See
 [release.md](release.md) for the steps, image access and pinning.
 
 ## Latest values for users (planned)
@@ -331,8 +327,8 @@ fetch only what they need.
 
 ## Order of work
 
-1. This document; month files, `manifest.json`, `jwd month`, the
-   workflow; `jwd monthly` and its script (done).
+1. This document; month files, `manifest.json`, `jwd month`, `jwd monthly`
+   without the crawl state, their workflows (done).
 2. `refetch`, `corrections`; run the first monthly update and measure
    requests and changed rows.
 3. `latest`.

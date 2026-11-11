@@ -20,7 +20,7 @@ import (
 )
 
 // version is set from the release tag by the Docker build (-ldflags -X).
-var version = "0.1.0"
+var version = "0.1.1"
 
 const usage = `jwd - build a Parquet dataset of JMA weather observations
 
@@ -32,8 +32,9 @@ Commands:
   probe      find the years with data of each station
   backfill   fetch all station-years not fetched yet (newest first)
   update     fetch the latest days and refresh old chunks
-  monthly    monthly run: stations, the last two months again, a share of
-             the old years again, export (see docs/operations.md)
+  monthly    monthly run on a dataset directory without the crawl state:
+             stations, the last two months again, the oldest month file
+             into its year file (see docs/operations.md)
   export     write the dataset (Parquet + dataset card) to a directory
   month      update the current month files of a dataset directory
              without the crawl state (e.g. on GitHub Actions)
@@ -153,9 +154,10 @@ func accessState(err error) store.AccessState {
 
 func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, args []string) (err error) {
 	dataDir := g.dataDir
-	if cmd == "month" {
-		// month works from the dataset files only; its state is temporary.
-		tmp, err := os.MkdirTemp("", "jwd-month-")
+	if cmd == "month" || cmd == "monthly" {
+		// month and monthly work from the dataset files only; their state
+		// is temporary.
+		tmp, err := os.MkdirTemp("", "jwd-"+cmd+"-")
 		if err != nil {
 			return err
 		}
@@ -281,14 +283,11 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 		return c.Update(ctx, crawl.UpdateOptions{LookbackDays: *lookback, RefreshJobs: *refresh, RefreshAge: *refreshAge, DryRun: *dryRun})
 
 	case "monthly":
-		out := fs.String("out", env("JWD_EXPORT_DIR", "dataset"), "dataset directory (env JWD_EXPORT_DIR)")
-		cycle := fs.Int("refresh-cycle-months", 24, "refetch the older station-years over this many monthly runs (0: no refresh)")
-		refreshAge := fs.Duration("refresh-age", 30*24*time.Hour, "minimum age of a station-year to refresh")
+		dataset := fs.String("dataset", env("JWD_EXPORT_DIR", "dataset"), "dataset directory with stations, homogeneity breaks, manifest.json, the month files and the year files of the recent years (env JWD_EXPORT_DIR)")
 		skipStations := fs.Bool("skip-stations", false, "do not download the station list")
-		dryRun := fs.Bool("dry-run", false, "print the plan without requesting")
+		dryRun := fs.Bool("dry-run", false, "print the plan without requesting or writing")
 		fs.Parse(args)
-		return c.Monthly(ctx, crawl.MonthlyOptions{Out: *out, RefreshCycleMonths: *cycle, RefreshAge: *refreshAge,
-			SkipStations: *skipStations, DryRun: *dryRun})
+		return c.Monthly(ctx, crawl.MonthlyOptions{Dataset: *dataset, SkipStations: *skipStations, DryRun: *dryRun})
 
 	case "export":
 		out := fs.String("out", env("JWD_EXPORT_DIR", "dataset"), "output directory (env JWD_EXPORT_DIR)")

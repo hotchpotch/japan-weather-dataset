@@ -143,26 +143,26 @@ from its first missing day only.
 
 ### 2. Updates
 
-The published dataset is updated daily (current month, `jwd month` on
-GitHub Actions) and monthly (`jwd monthly` on the crawl machine); see
-[operations.md](operations.md) for both. In short:
+The published dataset is updated daily (current month, `jwd month`) and
+monthly (`jwd monthly`), both on GitHub Actions from the files on the Hub,
+without the crawl state; see [operations.md](operations.md). In short:
 
 - `month` refetches the last 3 days of the current month every day and
   fills up to 3 missing days before them (JMA restores or corrects recent
   data within days).
 - `monthly` refetches from the first day of the month before last to
   yesterday (so a month is fetched again after it ended, then goes into
-  its year file), refetches 1/24 of the older station-years (JMA also
-  corrects data of past years; see `correctHistory.json`; the whole
-  archive is refetched every two years), and probes new stations.
-- `update` (the earlier daily command) still works on the crawl machine:
+  its year file), downloads the station list and probes new stations.
+  Older years are not refetched; JMA's corrections of past years (see
+  `correctHistory.json`) are to be applied by the planned corrections
+  tooling.
+- `update` (the earlier daily command) still works with the crawl state:
   the last `-lookback-days` (31) for every active station plus
   `-refresh-jobs` requests of the station-years fetched longest ago.
 
 Rate limits differ between the modes: the backfill is a long, steady run
 (tens of thousands of requests over days) and should be run off-peak with
-the default interval; `month` is about 64 requests, `monthly` about 200
-plus the refresh (about 2,500).
+the default interval; `month` is about 64 requests, `monthly` about 260.
 
 ### Failure handling
 

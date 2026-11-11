@@ -84,3 +84,65 @@ func TestImportRowsKeepsUpdatedAt(t *testing.T) {
 		t.Errorf("rows = %d, want 6", got)
 	}
 }
+
+// The year file and the month files of a year are imported together into
+// one chunk per station-year, and the homogeneity breaks are loaded.
+func TestImportYearAndMonthFiles(t *testing.T) {
+	ctx := context.Background()
+	src, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer src.Close()
+	t1 := time.Date(2026, 11, 2, 3, 0, 0, 0, time.UTC)
+	var recs []obsdl.Record
+	for _, d := range []time.Time{day(9, 30), day(10, 1), day(11, 1)} {
+		recs = append(recs, record(d, 1))
+	}
+	brk := []obsdl.Break{{Element: "x", At: obsdl.Stamp{Date: day(10, 1)}}}
+	if err := src.WriteChunk(ctx, obsdl.Daily, "s47662", 2026, day(9, 30), day(11, 1), recs, brk, Fetch{RequestID: 1, FetchedAt: t1, JMADownloadsAt: t1}); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	chunk := src.ChunkPath(obsdl.Daily, "s47662", 2026)
+	files := map[string]string{
+		"data.parquet":    "date < DATE '2026-10-01'",
+		"2026-10.parquet": "month(date) = 10",
+		"2026-11.parquet": "month(date) = 11",
+	}
+	var paths []string
+	for name, where := range files {
+		p := dir + "/" + name
+		if _, err := src.DB.Exec("COPY (SELECT * FROM read_parquet('" + chunk + "') WHERE " + where + ") TO '" + p + "' (FORMAT parquet)"); err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, p)
+	}
+	breaks := dir + "/breaks.parquet"
+	if _, err := src.DB.Exec("COPY (SELECT * FROM breaks) TO '" + breaks + "' (FORMAT parquet)"); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if n, err := s.ImportRows(ctx, obsdl.Daily, paths...); err != nil || n != 3 {
+		t.Fatalf("imported %d rows (%v)", n, err)
+	}
+	chunks, err := s.Chunks(ctx, obsdl.Daily)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := chunks["s47662"][2026]; c.Rows != 3 || !c.From.Equal(day(9, 30)) || !c.To.Equal(day(11, 1)) {
+		t.Errorf("chunk = %+v", c)
+	}
+	if err := s.ImportBreaks(ctx, breaks); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := s.DB.QueryRow("SELECT count(*) FROM breaks WHERE station_id = 's47662' AND date = DATE '2026-10-01'").Scan(&n); err != nil || n != 1 {
+		t.Errorf("breaks = %d (%v)", n, err)
+	}
+}

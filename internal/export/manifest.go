@@ -149,7 +149,7 @@ func frequencyManifest(ctx context.Context, db *sql.DB, out string, f obsdl.Freq
 	if err != nil {
 		return nil, err
 	}
-	months, err := monthFiles(out, f)
+	months, err := MonthFiles(out, f)
 	if err != nil {
 		return nil, err
 	}

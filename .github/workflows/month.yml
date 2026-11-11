@@ -3,8 +3,8 @@
 # scripts/jwd-daily.sh in the released image JWD_IMAGE.
 #
 # Needs the repository variable HF_DATASET_REPO (e.g. user/japan-weather)
-# and the secret HF_TOKEN (write access to that dataset). Everything older
-# than the current month is written by the monthly run on another machine.
+# and the secret HF_TOKEN (write access to that dataset). The months before
+# are rewritten by the monthly run (monthly.yml).
 name: month
 
 on:
@@ -23,8 +23,10 @@ permissions:
   contents: read
   packages: read
 
+# The same group as monthly.yml: both rewrite manifest.json and the month
+# files, so they run one after the other.
 concurrency:
-  group: month
+  group: hf-dataset
   cancel-in-progress: false
 
 env:
