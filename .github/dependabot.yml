@@ -1,0 +1,20 @@
+version: 2
+
+# Security updates only: `open-pull-requests-limit: 0` disables version
+# updates; security updates have their own limit and still open pull
+# requests. Review them like any change (CI must pass), then release.
+# Dependabot has no security updates for Docker base images, and the hf CLI
+# is pinned in the Dockerfile and the scripts: refresh those by hand.
+updates:
+  # Dependabot regenerates .github/workflows/actions.lock in the same PR.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0

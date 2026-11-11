@@ -1,0 +1,75 @@
+# Publishes a release for a pushed tag vX.Y.Z (docs/release.md): tests, the
+# image ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z and a GitHub Release
+# with the notes from docs/releases/. No "latest" tag: the daily workflow and
+# the crawl machine name a version, and a published version is never
+# replaced.
+name: release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: github.repository == 'hotchpotch/japan-weather-dataset'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    permissions:
+      contents: write # the GitHub Release
+      packages: write # the image
+    env:
+      IMAGE: ghcr.io/hotchpotch/japan-weather-dataset:${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Check the version
+        # The tag must match `version` in cmd/jwd (it is in the User-Agent)
+        # and have release notes.
+        run: |
+          version=$(go run ./cmd/jwd version)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version in cmd/jwd/main.go"; exit 1
+          fi
+          test -s "docs/releases/$GITHUB_REF_NAME.md" || { echo "::error::docs/releases/$GITHUB_REF_NAME.md is missing"; exit 1; }
+
+      - name: Test
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: Build the image
+        run: |
+          docker build --build-arg "VERSION=${GITHUB_REF_NAME#v}" --build-arg "REVISION=$GITHUB_SHA" -t "$IMAGE" .
+          test "$(docker run --rm "$IMAGE" jwd version)" = "${GITHUB_REF_NAME#v}"
+          docker run --rm "$IMAGE" hf version
+
+      - name: Push the image
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
+            echo "::error::$IMAGE exists already; a released version is never replaced"; exit 1
+          fi
+          docker push "$IMAGE"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE")
+          echo "DIGEST=$digest" >> "$GITHUB_ENV"
+          echo "pushed $digest" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          { scripts/release-notes.sh "$GITHUB_REF_NAME"
+            printf '\n## Image\n\n```\n%s\n%s\n```\n' "$IMAGE" "$DIGEST"
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"

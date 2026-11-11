@@ -1,5 +1,6 @@
 # Daily update of the current month files of the Hugging Face dataset
-# (docs/operations.md, "Daily update of the current month").
+# (docs/operations.md, "Daily update of the current month"): runs
+# scripts/jwd-daily.sh in the released image JWD_IMAGE.
 #
 # Needs the repository variable HF_DATASET_REPO (e.g. user/japan-weather)
 # and the secret HF_TOKEN (write access to that dataset). Everything older
@@ -20,10 +21,15 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: month
   cancel-in-progress: false
+
+env:
+  # A released tag (release.yml); change it to use a new release.
+  JWD_IMAGE: ghcr.io/hotchpotch/japan-weather-dataset:v0.1.0
 
 jobs:
   month:
@@ -31,56 +37,25 @@ jobs:
     if: github.repository == 'hotchpotch/japan-weather-dataset'
     runs-on: ubuntu-26.04
     timeout-minutes: 120
-    env:
-      HF_REPO: ${{ vars.HF_DATASET_REPO }}
-      # hf CLI with its dependencies as of a fixed date (it gets HF_TOKEN).
-      HF_CLI: --exclude-newer 2026-11-12T00:00:00Z --from huggingface_hub==2.4.0 hf
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        with:
-          version: "0.13.7"
-          enable-cache: false # only for uvx (hf); nothing to cache
-      - name: Build
-        run: go build -o bin/jwd ./cmd/jwd
-
-      - name: Download the metadata and the current month files
+      - name: Pull the image
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          month=$(TZ=Asia/Tokyo date -d yesterday +%Y-%m)
-          year=${month%-*}
-          echo "MONTH=$month" >> "$GITHUB_ENV"
-          echo "YEAR=$year" >> "$GITHUB_ENV"
-          # Only small files: the month files do not exist yet on the 1st.
-          uvx $HF_CLI download "$HF_REPO" --repo-type dataset --local-dir dataset \
-            --include manifest.json --include stations/stations.parquet \
-            --include "daily/year=$year/$month.parquet" --include "hourly/year=$year/$month.parquet"
-          ls -lR dataset
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker pull "$JWD_IMAGE"
 
       - name: Update the month files
-        id: month
+        env:
+          HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          REFETCH_DAYS: ${{ inputs.refetch_days || '3' }}
+          MAX_GAP_DAYS: ${{ inputs.max_gap_days || '3' }}
+        # Exit code 7 (days missing beyond -max-gap-days) fails the job
+        # after the fetched days are uploaded.
         run: |
-          set +e
-          ./bin/jwd -interval 6s -min-interval 5s month -dataset dataset \
-            -refetch-days "${{ inputs.refetch_days || '3' }}" -max-gap-days "${{ inputs.max_gap_days || '3' }}"
-          code=$?
-          echo "code=$code" >> "$GITHUB_OUTPUT"
-          # 7: days are missing beyond -max-gap-days; upload what was fetched, fail afterwards.
-          if [ "$code" -ne 0 ] && [ "$code" -ne 7 ]; then exit "$code"; fi
-
-      - name: Upload
-        run: |
-          latest=$(jq -r '.daily.latest_date // "-"' dataset/manifest.json)
-          uvx $HF_CLI upload "$HF_REPO" dataset . --repo-type dataset \
-            --include manifest.json --include "daily/year=$YEAR/$MONTH.parquet" --include "hourly/year=$YEAR/$MONTH.parquet" \
-            --commit-message "Update $MONTH up to $latest"
-
-      - name: Report missing days
-        if: steps.month.outputs.code == '7'
-        run: |
-          jq '{daily: .daily.month_files, hourly: .hourly.month_files}' dataset/manifest.json
-          echo "::error::days are missing from the month files; the monthly run has to fill them"
-          exit 1
+          mkdir -p "$RUNNER_TEMP/dataset"
+          docker run --rm --init --user "$(id -u):$(id -g)" \
+            -e HF_DATASET_REPO -e HF_TOKEN -e GITHUB_ACTIONS \
+            -v "$RUNNER_TEMP/dataset:/dataset" "$JWD_IMAGE" \
+            jwd-daily.sh -refetch-days "$REFETCH_DAYS" -max-gap-days "$MAX_GAP_DAYS"

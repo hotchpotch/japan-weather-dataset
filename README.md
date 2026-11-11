@@ -22,9 +22,9 @@ Parquet dataset that can be published on Hugging Face and queried with SQL.
 See [docs/source.md](docs/source.md) for how the source service works and
 [docs/dataset.md](docs/dataset.md) for the dataset layout and the update strategy.
 [docs/operations.md](docs/operations.md) describes the operation: the daily
-update of the current month on GitHub Actions (`jwd month`, implemented) and
-the planned monthly run (preliminary/final values, JMA's corrections,
-`jwd latest`; not implemented yet).
+update of the current month on GitHub Actions (`jwd month`), the monthly run
+on the crawl machine (`jwd monthly`), both from a released Docker image, and
+the planned parts (JMA's corrections, `jwd latest`).
 
 ## Build
 
@@ -55,36 +55,40 @@ errors, persistent rate limiting or the own quota, and stops on a block or
 maintenance. `backfill -dry-run` prints the plan, `-max-jobs N` limits a run,
 `-stations` and `-from-year` / `-to-year` narrow it.
 
-Monthly run on the crawl machine (the 2nd of each month, ~05:00 JST;
-stations, the last two months again, 1/24 of the older years again,
-export, upload; see [docs/operations.md](docs/operations.md#monthly-update)):
+The updates run from a released image
+(`ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z`, built by
+`.github/workflows/release.yml` for a tag; see
+[docs/release.md](docs/release.md)). Settings go into
+`.env` in the repository root (not committed):
 
 ```sh
-JWD_DATA_DIR=/data/jwd scripts/jwd-monthly.sh ./bin/jwd <user>/<dataset> /data/dataset
+JWD_IMAGE=ghcr.io/hotchpotch/japan-weather-dataset:v0.1.0
+JWD_DATA_DIR=/data/jwd          # crawl state
+JWD_EXPORT_DIR=/data/dataset    # dataset directory
+HF_DATASET_REPO=<user>/<dataset>
+HF_TOKEN=...                    # write access to that dataset only
 ```
 
-Or put the settings in `.env` in the repository root (not committed) and
-run `scripts/jwd-monthly.sh` without the arguments (`./bin/jwd` is used):
+Monthly run on the crawl machine (the 2nd of each month, ~05:00 JST;
+stations, the last two months again, 1/24 of the older years again,
+export, upload; see [docs/operations.md](docs/operations.md#monthly-update)),
+e.g. from cron (`0 20 1 * *` on a UTC host):
 
 ```sh
-JWD_DATA_DIR=/data/jwd
-JWD_EXPORT_DIR=/data/dataset
-HF_DATASET_REPO=<user>/<dataset>
-# HF_TOKEN=...   # otherwise the token of `hf auth login`
+scripts/jwd-docker.sh jwd-monthly.sh
 ```
 
 Daily update of the current month without the crawl state (what
-`.github/workflows/month.yml` runs):
+`.github/workflows/month.yml` runs in the image; `JWD_EXPORT_DIR` is a work
+directory here):
 
 ```sh
-m=$(TZ=Asia/Tokyo date -d yesterday +%Y-%m); y=${m%-*}
-hf download <user>/<dataset> --repo-type dataset --local-dir dataset \
-  --include manifest.json --include stations/stations.parquet \
-  --include "daily/year=$y/$m.parquet" --include "hourly/year=$y/$m.parquet"
-jwd month -dataset dataset          # last 3 days again + up to 3 missing days
-hf upload <user>/<dataset> dataset . --repo-type dataset \
-  --include manifest.json --include "daily/year=$y/$m.parquet" --include "hourly/year=$y/$m.parquet"
+scripts/jwd-docker.sh jwd-daily.sh   # last 3 days again + up to 3 missing days
 ```
+
+`scripts/jwd-docker.sh jwd status` and other `jwd` commands run in the image
+the same way. Without Docker, `scripts/jwd-monthly.sh` and
+`scripts/jwd-daily.sh` use `./bin/jwd` and the `hf` CLI (or `uvx`).
 
 Global flags: `-interval` (initial pause after each response, default 6s),
 `-min-interval` (lower bound of the adaptive pause, default 3s), `-budget` (cells per request,

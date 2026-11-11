@@ -19,7 +19,8 @@ import (
 	"github.com/hotchpotch/japan-weather-dataset/internal/store"
 )
 
-const version = "0.1.0"
+// version is set from the release tag by the Docker build (-ldflags -X).
+var version = "0.1.0"
 
 const usage = `jwd - build a Parquet dataset of JMA weather observations
 
@@ -37,6 +38,7 @@ Commands:
   month      update the current month files of a dataset directory
              without the crawl state (e.g. on GitHub Actions)
   status     show crawl progress
+  version    print the version
 
 Global flags:
 `
@@ -85,6 +87,10 @@ func main() {
 	if fs.NArg() == 0 {
 		fs.Usage()
 		os.Exit(2)
+	}
+	if fs.Arg(0) == "version" {
+		fmt.Println(version)
+		return
 	}
 	level := slog.LevelInfo
 	if g.verbose {

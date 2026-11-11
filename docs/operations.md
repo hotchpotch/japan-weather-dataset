@@ -1,8 +1,8 @@
 # Operation: daily and monthly updates
 
 > **Status.** Implemented: the file layout with month files, `manifest.json`,
-> `jwd month` with the GitHub Actions workflow, and `jwd monthly` with
-> `scripts/jwd-monthly.sh`. Planned, not implemented yet: `jwd refetch`,
+> `jwd month` with the GitHub Actions workflow, `jwd monthly` with
+> `scripts/jwd-monthly.sh`, and the released image that runs both. Planned, not implemented yet: `jwd refetch`,
 > `jwd corrections` (JMA's announced corrections), `jwd latest`, the
 > `status` column and the `corrections` output (marked "planned" below).
 > When a planned part is implemented, update this document (and README /
@@ -14,8 +14,8 @@ The published dataset is updated in two places:
 | | GitHub Actions | machine with the crawl state |
 |---|---|---|
 | when | every day, 05:17 JST | the 2nd of each month, ~05:00 JST |
-| command | `jwd month` (`.github/workflows/month.yml`) | `scripts/jwd-monthly.sh` (`jwd monthly` + upload) |
-| state | none (temporary) | `state.duckdb` + `chunks/` (3+ GB) |
+| command | `jwd-daily.sh` (`jwd month` + download/upload) in the image, from `.github/workflows/month.yml` | `jwd-monthly.sh` (`jwd monthly` + upload) in the image, from `scripts/jwd-docker.sh` (cron) |
+| state | none (temporary) | `state.duckdb` + `chunks/` (~6 GB) |
 | downloads from the Hub | `manifest.json`, `stations.parquet`, the current month files (~5 MB) | nothing (the state is the source) |
 | fetches | the last 3 days of the current month, up to 3 missing days before them | the month before last to yesterday; 1/24 of the older station-years |
 | writes | the current month files, `manifest.json` | everything: year files, month files (and deletes merged ones), stations, homogeneity breaks, card, manifest |
@@ -30,6 +30,9 @@ job from its month files plus the entries of the downloaded manifest for
 files it did not download (entries more than two months before the
 current month are dropped as stale). The monthly upload (hours after the
 daily job of the 2nd) leaves a complete manifest.
+
+Both run the same released image (see [releases](#releases-and-the-image)),
+so a change reaches them only with a new release.
 
 The crawl machine needs no daily run any more (`jwd update` remains as a
 tool). Users who need values newer than the dataset can add them locally
@@ -159,17 +162,24 @@ waiting for JMA.
 ### GitHub Actions
 
 `.github/workflows/month.yml` runs daily at 05:17 JST (after JMA's 01:00
-and 03:00 updates; not on the hour, when scheduled runs are delayed most):
+and 03:00 updates; not on the hour, when scheduled runs are delayed most).
+It pulls the image `JWD_IMAGE` (a released version, set in the workflow)
+and runs `scripts/jwd-daily.sh` in it:
 
-1. Build `jwd`.
-2. `hf download` only `manifest.json`, `stations/stations.parquet` and the
+1. `hf download` only `manifest.json`, `stations/stations.parquet` and the
    two month files of the current month (absent on the 1st).
-3. `jwd month -dataset dataset`; exit code 7 still uploads, then fails the
-   job so that it shows up.
-4. `hf upload` only `manifest.json` and the two month files.
+2. `jwd month`; exit code 7 still uploads, then fails the job so that it
+   shows up.
+3. `hf upload` only `manifest.json` and the two month files.
 
 Settings: repository variable `HF_DATASET_REPO`, secret `HF_TOKEN` with
-write access to the dataset.
+write access to the dataset. A run takes about 10 minutes. In a private
+repository it uses the included Actions minutes (a standard runner there
+has 2 vCPUs, which is enough).
+
+The same script runs outside GitHub with `.env` (or the environment)
+providing `HF_DATASET_REPO`, `HF_TOKEN` and `JWD_EXPORT_DIR` (a work
+directory).
 
 Notes for a public repository:
 
@@ -198,9 +208,23 @@ Notes for a public repository:
 
 ## Monthly update
 
-`scripts/jwd-monthly.sh ./bin/jwd <user>/<dataset> <dataset-dir>` (with
-`JWD_DATA_DIR` set) on the 2nd of each month around 05:00 JST, after JMA's
-01:00/03:00 updates. It runs `jwd monthly -out <dataset-dir>`:
+On the machine with the crawl state, on the 2nd of each month around 05:00
+JST (after JMA's 01:00/03:00 updates), from cron:
+
+```sh
+scripts/jwd-docker.sh jwd-monthly.sh
+```
+
+`scripts/jwd-docker.sh` runs a command of the image `JWD_IMAGE` with the
+state directory `JWD_DATA_DIR` and the dataset directory `JWD_EXPORT_DIR`
+mounted (settings from `.env`, see README). Without Docker,
+`scripts/jwd-monthly.sh` runs the same with a local `bin/jwd`.
+
+It does not run on a GitHub-hosted runner: it takes 5–6 hours (a job may
+run at most 6), and the state (~6 GB) would have to be restored and kept
+between monthly runs (the Actions cache drops entries unused for 7 days).
+
+`jwd-monthly.sh` runs `jwd monthly -out <dataset-dir>`:
 
 1. `stations` (61 requests; `-skip-stations` to skip) and a probe of
    stations without coverage.
@@ -272,12 +296,21 @@ what was changed and why.
 
 ## Upload
 
-- Daily (GitHub Actions): only `manifest.json` and the current month files.
-- Monthly (`scripts/jwd-monthly.sh`): the whole dataset directory; files
+- Daily (`jwd-daily.sh`): only `manifest.json` and the current month files.
+- Monthly (`jwd-monthly.sh`): the whole dataset directory; files
   whose content did not change are skipped by the Hub client, month files
   merged into a year file are deleted.
 - The commit message carries the latest date and, once implemented, the
   IDs of the corrections applied.
+
+## Releases and the image
+
+The `Dockerfile` builds an image with `jwd`, the `hf` CLI and `scripts/`
+(on `PATH`; `JWD_DATA_DIR=/data`, `JWD_EXPORT_DIR=/dataset`). A tag
+`vX.Y.Z` publishes it as `ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z`;
+both updates name the version they run (`JWD_IMAGE` in
+`.github/workflows/month.yml` and in `.env` on the crawl machine). See
+[release.md](release.md) for the steps, image access and pinning.
 
 ## Latest values for users (planned)
 
