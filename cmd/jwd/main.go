@@ -20,7 +20,7 @@ import (
 )
 
 // version is set from the release tag by the Docker build (-ldflags -X).
-var version = "0.1.2"
+var version = "0.1.3"
 
 const usage = `jwd - build a Parquet dataset of JMA weather observations
 
