@@ -1,0 +1,30 @@
+# Keeps the scheduled workflows enabled. GitHub disables scheduled
+# workflows of a public repository after 60 days without activity in the
+# repository, and the updates only upload to the Hub. Enabling a workflow
+# again (also when it is enabled) resets that period; GitHub does not
+# document this, but keepalive tools rely on it (docs/operations.md,
+# "Notes for a public repository").
+name: keepalive
+
+on:
+  schedule:
+    - cron: "41 3 1,15 * *" # twice a month, 12:41 JST; not on the hour
+  workflow_dispatch:
+
+permissions:
+  actions: write # enable the workflows
+
+jobs:
+  keepalive:
+    if: github.repository == 'hotchpotch/japan-weather-dataset'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Enable the scheduled workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for wf in month.yml monthly.yml keepalive.yml; do
+            gh workflow enable "$wf"
+          done

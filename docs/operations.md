@@ -205,8 +205,10 @@ Notes for a public repository:
 - Scheduled runs can be delayed or skipped when GitHub is busy; the gap
   filling covers a few skipped days.
 - GitHub disables scheduled workflows of a public repository after 60 days
-  without activity in the repository. Uploads to the Hub do not count;
-  keep the repository active (or re-enable the workflow).
+  without activity in the repository. Uploads to the Hub do not count.
+  `.github/workflows/keepalive.yml` enables `month.yml`, `monthly.yml` and
+  itself again on the 1st and 15th of each month, which resets that
+  period (`gh workflow enable month.yml` re-enables one by hand).
 - `HF_TOKEN` is not available to pull requests from forks; the workflow
   has no pull request trigger.
 
