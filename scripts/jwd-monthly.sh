@@ -14,7 +14,7 @@
 # directory (they went into a year file). Data that was fetched before a
 # failure is uploaded as well; the script then exits with jwd's exit code
 # (see README). Needs `hf` (pip install huggingface_hub; without it,
-# `uvx --from huggingface_hub hf` is used) logged in or HF_TOKEN set.
+# a pinned huggingface_hub is run with uvx) logged in or HF_TOKEN set.
 set -u
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -39,7 +39,7 @@ fi
 if command -v hf >/dev/null; then
   hf=(hf)
 else
-  hf=(uvx --from huggingface_hub hf)
+  hf=(uvx --exclude-newer 2026-11-12T00:00:00Z --from huggingface_hub==2.4.0 hf)
 fi
 
 log() { echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') jwd-monthly: $*" >&2; }
