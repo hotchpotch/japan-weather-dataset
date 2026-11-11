@@ -50,8 +50,9 @@ Run the checks above before committing a behavior change. CI
 - Workflows: reference actions by an exact release tag (`@v7.0.1`), then
   run `gh actions-lock` and commit `.github/workflows/actions.lock`, which
   pins each action and the actions it uses to a commit (GitHub enforces it
-  at run time). Never use `latest` images or unpinned tools in the update
-  path.
+  at run time). The update workflows run the image `:latest`, which only a
+  release moves (`release.yml`); never use unpinned tools or images other
+  than the released ones in the update path.
 
 ## Data and secrets
 

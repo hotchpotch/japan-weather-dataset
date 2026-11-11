@@ -31,8 +31,9 @@ dropped as stale). They share a concurrency group, so they never run at
 the same time; the monthly run on the 2nd starts after the daily one and
 leaves a complete manifest.
 
-Both run the same released image (see [releases](#releases-and-the-image)),
-so a change reaches them only with a new release.
+Both run the latest released image (`:latest`, see
+[releases](#releases-and-the-image)), so a change reaches them only with a
+new release, and with the next run after it.
 
 The crawl state (`jwd backfill`, `jwd update`, `jwd export` on a machine)
 is needed only to build the dataset from scratch. Users who need values
@@ -163,7 +164,7 @@ waiting for JMA.
 
 `.github/workflows/month.yml` runs daily at 05:17 JST (after JMA's 01:00
 and 03:00 updates; not on the hour, when scheduled runs are delayed most).
-It pulls the image `JWD_IMAGE` (a released version, set in the workflow)
+It pulls the image `JWD_IMAGE` (`:latest`, the latest release)
 and runs `scripts/jwd-daily.sh` in it:
 
 1. `hf download` only `manifest.json`, `stations/stations.parquet` and the
@@ -315,9 +316,9 @@ what was changed and why.
 
 The `Dockerfile` builds an image with `jwd`, the `hf` CLI and `scripts/`
 (on `PATH`; `JWD_DATA_DIR=/data`, `JWD_EXPORT_DIR=/dataset`). A tag
-`vX.Y.Z` publishes it as `ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z`;
-both workflows name the version they run (`JWD_IMAGE` in `month.yml` and
-`monthly.yml`). See
+`vX.Y.Z` publishes it as `ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z`
+and moves `:latest` to it; both workflows run `:latest` (`JWD_IMAGE` in
+`month.yml` and `monthly.yml`). See
 [release.md](release.md) for the steps, image access and pinning.
 
 ## Latest values for users (planned)

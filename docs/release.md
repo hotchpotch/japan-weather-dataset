@@ -3,10 +3,11 @@
 A release is a tag `vX.Y.Z`. `.github/workflows/release.yml` then runs the
 tests, builds the image `ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z`,
 pushes it with the workflow's short-lived `GITHUB_TOKEN` and creates a
-GitHub Release whose notes come from `docs/releases/`. There is no `latest`
-tag: the workflows (`month.yml`, `monthly.yml`) name the version they run
-(`JWD_IMAGE`), so a release changes nothing until they are switched to it.
-A published version is never replaced, and a tag is never moved or reused.
+GitHub Release whose notes come from `docs/releases/`. It also moves the
+image tag `latest` to the new version. The update workflows (`month.yml`,
+`monthly.yml`) run `:latest` (`JWD_IMAGE`), so a release takes effect with
+their next run. A published version is never replaced, and a version tag is
+never moved or reused; only `latest` moves.
 
 ## Release notes
 
@@ -53,14 +54,27 @@ on pull requests.
    The workflow fails without changing anything when the tag does not
    match `version`, `docs/releases/vX.Y.Z.md` is missing or the image
    exists already.
-5. Switch the workflows to the new image: `JWD_IMAGE` in
-   `.github/workflows/month.yml` and `monthly.yml` (commit and push; not
-   before the image exists, or the next scheduled run fails). Where the
-   scripts run elsewhere, also `JWD_IMAGE` in `.env`.
+5. Check that `:latest` points to the new version
+   (`docker run --rm ghcr.io/hotchpotch/japan-weather-dataset:latest jwd version`,
+   or the package page). The workflows use it from their next run.
 6. Run the workflows by hand and check the uploads:
    `gh workflow run month`, and `gh workflow run monthly -f dry_run=true`
    (a real monthly run refetches about two months; run it only when that
    is intended).
+
+## Rolling back
+
+If a release breaks the updates, point `latest` back to the previous
+version (a version tag is never changed):
+
+```sh
+docker buildx imagetools create \
+  -t ghcr.io/hotchpotch/japan-weather-dataset:latest \
+  ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z
+```
+
+(with `docker login ghcr.io` and a token that can write packages), or set
+`JWD_IMAGE` in the workflows to `:vX.Y.Z` until a fixed release.
 
 ## Image access
 

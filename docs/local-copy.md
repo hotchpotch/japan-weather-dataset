@@ -77,14 +77,16 @@ access status (interval, last rate limit) between runs.
 ### With Docker
 
 The released image has `jwd`, the `hf` CLI and the scripts
-([release.md](release.md)); pick the version from the
-[releases](https://github.com/hotchpotch/japan-weather-dataset/releases).
+([release.md](release.md)). `:latest` is the latest release; a version tag
+(`:vX.Y.Z`, see the
+[releases](https://github.com/hotchpotch/japan-weather-dataset/releases))
+keeps a fixed one.
 The image is private while the repository is (`docker login ghcr.io` with a
 token that can read packages); build it yourself otherwise:
 `docker build -t jwd .` in a clone.
 
 ```sh
-IMAGE=ghcr.io/hotchpotch/japan-weather-dataset:v0.1.2   # or jwd
+IMAGE=ghcr.io/hotchpotch/japan-weather-dataset:latest   # or jwd (built yourself)
 JW=~/.cache/japan-weather
 mkdir -p $JW/data $JW/jwd
 docker run --rm --init --user "$(id -u):$(id -g)" \
