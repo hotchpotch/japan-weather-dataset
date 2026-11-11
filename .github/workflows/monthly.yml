@@ -30,7 +30,7 @@ concurrency:
 
 env:
   # A released tag (release.yml); change it to use a new release.
-  JWD_IMAGE: ghcr.io/hotchpotch/japan-weather-dataset:v0.1.1
+  JWD_IMAGE: ghcr.io/hotchpotch/japan-weather-dataset:v0.1.2
 
 jobs:
   monthly:
