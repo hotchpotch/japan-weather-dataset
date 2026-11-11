@@ -119,9 +119,20 @@ Wind directions are 16-point codes: 1 = NNE, 2 = NE, …, 15 = NNW, 16 = N, 0 = 
 |---|---|---|
 {{range .HourlyColumns}}| {{.Name}} | {{.Type}} | {{.Description}} |
 {{end}}
+## Files
+
+`daily/year=YYYY/data.parquet` and `hourly/year=YYYY/data.parquet` hold the
+rows up to the month before the recent months; the recent months (the month
+of the latest day and the month before) are in
+`daily/year=YYYY/YYYY-MM.parquet` and `hourly/year=YYYY/YYYY-MM.parquet`.
+The current month is updated every day; when a new month starts, the oldest
+month file is merged into its year file. Read `daily/*/*.parquet` to get all
+rows. `manifest.json` lists the latest date and the month files with their
+missing days.
+
 ## Notes
 
 - Station ids are obsdl ids: `s` + WMO-style 5 digits for official stations, `a` + 4 digits for AMeDAS stations.
 - Station positions are the current (or last) positions given in degrees and 0.1 minutes; past relocations are not reflected.
 - AMeDAS sunshine duration since March 2021 is estimated from satellite data by JMA.
-- JMA corrects past values from time to time. The latest days are fetched again every day and older years are refreshed on a rolling basis.
+- JMA corrects past values from time to time. The last days are fetched again every day, the month before after it ended, and older years are refreshed on a rolling basis.

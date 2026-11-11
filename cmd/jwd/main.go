@@ -30,8 +30,12 @@ Commands:
   stations   download the station lists of all areas
   probe      find the years with data of each station
   backfill   fetch all station-years not fetched yet (newest first)
-  update     fetch the latest days and refresh old chunks (run daily)
+  update     fetch the latest days and refresh old chunks
+  monthly    monthly run: stations, the last two months again, a share of
+             the old years again, export (see docs/operations.md)
   export     write the dataset (Parquet + dataset card) to a directory
+  month      update the current month files of a dataset directory
+             without the crawl state (e.g. on GitHub Actions)
   status     show crawl progress
 
 Global flags:
@@ -40,6 +44,7 @@ Global flags:
 type global struct {
 	dataDir     string
 	interval    time.Duration
+	minInterval time.Duration
 	userAgent   string
 	budget      int
 	maxStations int
@@ -61,7 +66,8 @@ func main() {
 	var g global
 	fs := flag.NewFlagSet("jwd", flag.ExitOnError)
 	fs.StringVar(&g.dataDir, "data-dir", env("JWD_DATA_DIR", "data"), "data directory (env JWD_DATA_DIR)")
-	fs.DurationVar(&g.interval, "interval", 3*time.Second, "minimum interval between requests to JMA")
+	fs.DurationVar(&g.interval, "interval", 6*time.Second, "initial pause between the end of a response and the next request to JMA; doubled on rate limiting, lowered by 0.5s after 50 successes in a row")
+	fs.DurationVar(&g.minInterval, "min-interval", 3*time.Second, "lower bound of the adaptive interval (set to -interval or more for a fixed interval)")
 	fs.StringVar(&g.userAgent, "user-agent", env("JWD_USER_AGENT",
 		"japan-weather-dataset/"+version+" (+https://github.com/hotchpotch/japan-weather-dataset)"), "User-Agent header (env JWD_USER_AGENT)")
 	fs.IntVar(&g.budget, "budget", 100_000, fmt.Sprintf("maximum request size in cells (server limit %d)", obsdl.ServerCellLimit))
@@ -105,6 +111,7 @@ const (
 	exitBlocked     = 4 // JMA refused access
 	exitMaintenance = 5 // the service is under maintenance
 	exitQuota       = 6 // the self-imposed request limit was reached
+	exitMissingDays = 7 // month: days are missing beyond -max-gap-days
 )
 
 func exitCode(err error) int {
@@ -117,6 +124,8 @@ func exitCode(err error) int {
 		return exitMaintenance
 	case errors.Is(err, crawl.ErrQuota):
 		return exitQuota
+	case errors.Is(err, crawl.ErrMissingDays):
+		return exitMissingDays
 	}
 	return 1
 }
@@ -137,7 +146,17 @@ func accessState(err error) store.AccessState {
 }
 
 func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, args []string) (err error) {
-	st, err := store.Open(g.dataDir)
+	dataDir := g.dataDir
+	if cmd == "month" {
+		// month works from the dataset files only; its state is temporary.
+		tmp, err := os.MkdirTemp("", "jwd-month-")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(tmp)
+		dataDir = tmp
+	}
+	st, err := store.Open(dataDir)
 	if err != nil {
 		return err
 	}
@@ -149,7 +168,8 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 	var lastEvent *obsdl.AccessEvent
 	client = obsdl.NewClient(obsdl.Options{
 		UserAgent:        g.userAgent,
-		MinInterval:      g.interval,
+		Interval:         g.interval,
+		MinInterval:      g.minInterval,
 		MaxRetries:       g.maxRetries,
 		MaxRateLimitHits: g.maxRateHits,
 		Logger:           log,
@@ -160,7 +180,7 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 			}
 			state := store.AccessRateLimited
 			switch ev.Kind {
-			case obsdl.EventRecovered:
+			case obsdl.EventRecovered, obsdl.EventSpedUp:
 				state = store.AccessOK
 			case obsdl.EventBlocked:
 				state = store.AccessBlocked
@@ -170,6 +190,9 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 			writeStatus(st, log, state, cmd, client, lastEvent, "")
 		},
 	})
+	if prev, _ := st.ReadAccessStatus(); prev != nil {
+		restoreInterval(client, prev)
+	}
 	c := &crawl.Crawler{
 		Client:            client,
 		Store:             st,
@@ -180,7 +203,7 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 		MaxRequestsPer24h: g.maxPerDay,
 	}
 	switch cmd {
-	case "stations", "probe", "backfill", "update":
+	case "stations", "probe", "backfill", "update", "monthly":
 		defer func() {
 			if errors.Is(err, context.Canceled) {
 				return
@@ -251,11 +274,38 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 		}
 		return c.Update(ctx, crawl.UpdateOptions{LookbackDays: *lookback, RefreshJobs: *refresh, RefreshAge: *refreshAge, DryRun: *dryRun})
 
+	case "monthly":
+		out := fs.String("out", env("JWD_EXPORT_DIR", "dataset"), "dataset directory (env JWD_EXPORT_DIR)")
+		cycle := fs.Int("refresh-cycle-months", 24, "refetch the older station-years over this many monthly runs (0: no refresh)")
+		refreshAge := fs.Duration("refresh-age", 30*24*time.Hour, "minimum age of a station-year to refresh")
+		skipStations := fs.Bool("skip-stations", false, "do not download the station list")
+		dryRun := fs.Bool("dry-run", false, "print the plan without requesting")
+		fs.Parse(args)
+		return c.Monthly(ctx, crawl.MonthlyOptions{Out: *out, RefreshCycleMonths: *cycle, RefreshAge: *refreshAge,
+			SkipStations: *skipStations, DryRun: *dryRun})
+
 	case "export":
 		out := fs.String("out", env("JWD_EXPORT_DIR", "dataset"), "output directory (env JWD_EXPORT_DIR)")
 		all := fs.Bool("all", false, "re-export every year, not only changed years")
 		fs.Parse(args)
 		return (&export.Exporter{Store: st, Out: *out, Log: log, All: *all}).Run(ctx)
+
+	case "month":
+		dataset := fs.String("dataset", env("JWD_EXPORT_DIR", "dataset"), "dataset directory with stations/stations.parquet and the current month files (env JWD_EXPORT_DIR)")
+		freqs := fs.String("frequency", "daily,hourly", "comma separated frequencies")
+		refetch := fs.Int("refetch-days", 3, "last days up to yesterday fetched on every run")
+		maxGap := fs.Int("max-gap-days", 3, "missing days before them filled at most (more: exit code 7)")
+		dryRun := fs.Bool("dry-run", false, "print the plan without requesting or writing")
+		fs.Parse(args)
+		o := crawl.MonthOptions{Dataset: *dataset, RefetchDays: *refetch, MaxGapDays: *maxGap, DryRun: *dryRun}
+		for _, name := range strings.Split(*freqs, ",") {
+			f, err := obsdl.ParseFrequency(strings.TrimSpace(name))
+			if err != nil {
+				return err
+			}
+			o.Frequencies = append(o.Frequencies, f)
+		}
+		return c.UpdateMonth(ctx, o)
 
 	case "status":
 		fs.Parse(args)
@@ -264,8 +314,25 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 	return fmt.Errorf("unknown command %q", cmd)
 }
 
+// restoreInterval starts from the interval and the last rate limit of the
+// previous run when it ended less than 24 hours ago, so that a restart does
+// not go back to a faster pace than the server accepted.
+func restoreInterval(client *obsdl.Client, prev *store.AccessStatus) {
+	if time.Since(prev.UpdatedAt) > 24*time.Hour {
+		return
+	}
+	iv, _ := time.ParseDuration(prev.Interval)
+	hitIv, _ := time.ParseDuration(prev.LastRateLimitInterval)
+	client.RestoreRateLimit(iv, hitIv, prev.LastRateLimitAt)
+}
+
 func writeStatus(st *store.Store, log *slog.Logger, state store.AccessState, cmd string, client *obsdl.Client, ev *obsdl.AccessEvent, msg string) {
 	s := store.AccessStatus{State: state, Command: cmd, Interval: client.Interval().String(), Message: msg}
+	if iv, at := client.LastRateLimit(); !at.IsZero() {
+		s.LastRateLimitInterval, s.LastRateLimitAt = iv.String(), at
+	} else if prev, _ := st.ReadAccessStatus(); prev != nil {
+		s.LastRateLimitInterval, s.LastRateLimitAt = prev.LastRateLimitInterval, prev.LastRateLimitAt
+	}
 	if ev != nil {
 		s.LastEvent = store.NewEventJSON(*ev)
 	}

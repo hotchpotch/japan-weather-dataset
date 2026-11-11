@@ -4,3 +4,4 @@
 tmp/
 output/
 *.tmp
+.env

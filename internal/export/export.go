@@ -1,20 +1,29 @@
 // Package export builds the published dataset from the stored chunks:
 //
 //	stations/stations.parquet
-//	daily/year=<YYYY>/data.parquet
-//	hourly/year=<YYYY>/data.parquet
+//	daily/year=<YYYY>/data.parquet      rows before the recent months
+//	daily/year=<YYYY>/<YYYY-MM>.parquet rows of a recent month
+//	hourly/...                          the same for hourly rows
 //	homogeneity_breaks/homogeneity_breaks.parquet
-//	README.md   (Hugging Face dataset card)
+//	manifest.json  (dates covered by the files; see WriteManifest)
+//	README.md      (Hugging Face dataset card)
+//
+// The recent months are the month of the latest date and the month before
+// (see RecentMonths). Their values may still be revised by JMA, and the
+// month of the latest date is updated every day, possibly by the month
+// command, which does not need the crawl state.
 package export
 
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	_ "embed"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -43,51 +52,21 @@ func (e *Exporter) Run(ctx context.Context) error {
 		return err
 	}
 	for _, f := range []obsdl.Frequency{obsdl.Daily, obsdl.Hourly} {
-		years, err := e.years(ctx, f)
+		latest, ok, err := e.Store.LastChunkDate(ctx, f)
+		if err != nil {
+			return err
+		}
+		var months []time.Time
+		if ok {
+			months = RecentMonths(latest)
+		}
+		years, err := e.years(ctx, f, months)
 		if err != nil {
 			return err
 		}
 		for _, y := range years {
-			src := filepath.Join(e.Store.Dir, "chunks", string(f), strconv.Itoa(y), "*.parquet")
-			dir := filepath.Join(e.Out, string(f), fmt.Sprintf("year=%d", y))
-			dst := filepath.Join(dir, "data.parquet")
-			files, _ := filepath.Glob(src)
-			if len(files) == 0 {
-				if err := os.RemoveAll(dir); err != nil {
-					return err
-				}
-			} else {
-				if err := os.MkdirAll(dir, 0o755); err != nil {
-					return err
-				}
-				order := "station_id, date"
-				if f == obsdl.Hourly {
-					order += ", hour"
-				}
-				tmp := dst + ".tmp"
-				// Chunks written before updated_at existed take the fetch
-				// time of the chunk.
-				var hasUpdated bool
-				if err := db.QueryRowContext(ctx, fmt.Sprintf(`SELECT count(*) > 0 FROM (DESCRIBE SELECT * FROM read_parquet(%s, union_by_name = true)) WHERE column_name = 'updated_at'`,
-					q(src))).Scan(&hasUpdated); err != nil {
-					return fmt.Errorf("export %s %d: %w", f, y, err)
-				}
-				cols, updated := "p.*", "CAST(c.fetched_at AS TIMESTAMPTZ)"
-				if hasUpdated {
-					cols, updated = "p.* EXCLUDE (updated_at)", "coalesce(p.updated_at, CAST(c.fetched_at AS TIMESTAMPTZ))"
-				}
-				sql := fmt.Sprintf(`COPY (SELECT %s, %s AS updated_at
-FROM read_parquet(%s, union_by_name = true) p
-LEFT JOIN chunks c ON c.frequency = %s AND c.year = %d AND c.station_id = p.station_id
-ORDER BY %s)
-TO %s (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 100000)`, cols, updated, q(src), q(string(f)), y, order, q(tmp))
-				if _, err := db.ExecContext(ctx, sql); err != nil {
-					return fmt.Errorf("export %s %d: %w", f, y, err)
-				}
-				if err := os.Rename(tmp, dst); err != nil {
-					return err
-				}
-				e.Log.Info("exported", "frequency", f, "year", y, "files", len(files))
+			if err := e.exportYear(ctx, f, y, months); err != nil {
+				return fmt.Errorf("export %s %d: %w", f, y, err)
 			}
 			if err := e.Store.ClearDirty(ctx, f, y); err != nil {
 				return err
@@ -105,32 +84,209 @@ TO %s (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 100000)`, cols, updated,
 ORDER BY station_id, frequency, element, date, hour) TO %s (FORMAT parquet, COMPRESSION zstd)`, q(breaks))); err != nil {
 		return fmt.Errorf("export breaks: %w", err)
 	}
-	return e.writeCard(ctx)
+	if err := e.writeCard(ctx); err != nil {
+		return err
+	}
+	return WriteManifest(ctx, db, e.Out, time.Now(), nil)
 }
 
-// years returns the years to export for a frequency.
-func (e *Exporter) years(ctx context.Context, f obsdl.Frequency) ([]int, error) {
-	if !e.All {
-		return e.Store.DirtyYears(ctx, f)
-	}
-	entries, err := os.ReadDir(filepath.Join(e.Store.Dir, "chunks", string(f)))
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
+// RecentMonths returns the month before the month of latest and that month
+// (first days). Their rows are written to month files; older rows to year
+// files.
+func RecentMonths(latest time.Time) []time.Time {
+	cur := time.Date(latest.Year(), latest.Month(), 1, 0, 0, 0, 0, time.UTC)
+	return []time.Time{cur.AddDate(0, -1, 0), cur}
+}
+
+// YearPath is the file of the rows of year y before the recent months.
+func YearPath(out string, f obsdl.Frequency, y int) string {
+	return filepath.Join(out, string(f), fmt.Sprintf("year=%d", y), "data.parquet")
+}
+
+// MonthPath is the file of the rows of month m (first day).
+func MonthPath(out string, f obsdl.Frequency, m time.Time) string {
+	return filepath.Join(out, string(f), fmt.Sprintf("year=%d", m.Year()), m.Format("2006-01")+".parquet")
+}
+
+// monthFiles returns the month files of a frequency in a dataset directory.
+func monthFiles(out string, f obsdl.Frequency) (map[time.Time]string, error) {
+	paths, err := filepath.Glob(filepath.Join(out, string(f), "year=*", "????-??.parquet"))
 	if err != nil {
 		return nil, err
 	}
-	var out []int
-	for _, en := range entries {
-		if y, err := strconv.Atoi(en.Name()); err == nil && en.IsDir() {
-			out = append(out, y)
+	res := map[time.Time]string{}
+	for _, p := range paths {
+		m, err := time.Parse("2006-01", strings.TrimSuffix(filepath.Base(p), ".parquet"))
+		if err != nil {
+			continue
+		}
+		res[m] = p
+	}
+	return res, nil
+}
+
+// rowsSQL selects the rows of year y from the chunks with updated_at.
+// Chunks written before updated_at existed take the fetch time of the chunk.
+func (e *Exporter) rowsSQL(ctx context.Context, f obsdl.Frequency, y int) (string, error) {
+	src := filepath.Join(e.Store.Dir, "chunks", string(f), strconv.Itoa(y), "*.parquet")
+	var hasUpdated bool
+	if err := e.Store.DB.QueryRowContext(ctx, fmt.Sprintf(`SELECT count(*) > 0 FROM (DESCRIBE SELECT * FROM read_parquet(%s, union_by_name = true)) WHERE column_name = 'updated_at'`,
+		q(src))).Scan(&hasUpdated); err != nil {
+		return "", err
+	}
+	cols, updated := "p.*", "CAST(c.fetched_at AS TIMESTAMPTZ)"
+	if hasUpdated {
+		cols, updated = "p.* EXCLUDE (updated_at)", "coalesce(p.updated_at, CAST(c.fetched_at AS TIMESTAMPTZ))"
+	}
+	return fmt.Sprintf(`SELECT %s, %s AS updated_at
+FROM read_parquet(%s, union_by_name = true) p
+LEFT JOIN chunks c ON c.frequency = %s AND c.year = %d AND c.station_id = p.station_id`, cols, updated, q(src), q(string(f)), y), nil
+}
+
+func orderBy(f obsdl.Frequency) string {
+	if f == obsdl.Hourly {
+		return "station_id, date, hour"
+	}
+	return "station_id, date"
+}
+
+// writeRows writes the rows of query matching where to dst, or removes dst
+// when there are none. It returns the number of rows.
+func writeRows(ctx context.Context, db *sql.DB, f obsdl.Frequency, query, where, dst string) (int, error) {
+	var n int
+	if err := db.QueryRowContext(ctx, fmt.Sprintf("SELECT count(*) FROM (%s) WHERE %s", query, where)).Scan(&n); err != nil {
+		return 0, err
+	}
+	if n == 0 {
+		if err := os.Remove(dst); err != nil && !os.IsNotExist(err) {
+			return 0, err
+		}
+		return 0, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return 0, err
+	}
+	tmp := dst + ".tmp"
+	if _, err := db.ExecContext(ctx, fmt.Sprintf(`COPY (SELECT * FROM (%s) WHERE %s ORDER BY %s)
+TO %s (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 100000)`, query, where, orderBy(f), q(tmp))); err != nil {
+		return 0, err
+	}
+	return n, os.Rename(tmp, dst)
+}
+
+func dateLit(t time.Time) string { return "DATE " + q(t.Format(time.DateOnly)) }
+
+// exportYear writes the year file of y and the month files of the recent
+// months within y, and removes month files of y that are no longer recent.
+func (e *Exporter) exportYear(ctx context.Context, f obsdl.Frequency, y int, months []time.Time) error {
+	dir := filepath.Join(e.Out, string(f), fmt.Sprintf("year=%d", y))
+	files, _ := filepath.Glob(filepath.Join(e.Store.Dir, "chunks", string(f), strconv.Itoa(y), "*.parquet"))
+	if len(files) == 0 {
+		return os.RemoveAll(dir)
+	}
+	query, err := e.rowsSQL(ctx, f, y)
+	if err != nil {
+		return err
+	}
+	where := "true"
+	if len(months) > 0 {
+		where = "date < " + dateLit(months[0])
+	}
+	n, err := writeRows(ctx, e.Store.DB, f, query, where, YearPath(e.Out, f, y))
+	if err != nil {
+		return err
+	}
+	parts := []any{"frequency", f, "year", y, "chunks", len(files), "rows", n}
+	keep := map[time.Time]bool{}
+	for _, m := range months {
+		if m.Year() != y {
+			continue
+		}
+		keep[m] = true
+		mn, err := writeRows(ctx, e.Store.DB, f, query,
+			fmt.Sprintf("date >= %s AND date < %s", dateLit(m), dateLit(m.AddDate(0, 1, 0))), MonthPath(e.Out, f, m))
+		if err != nil {
+			return err
+		}
+		parts = append(parts, m.Format("2006-01"), mn)
+	}
+	existing, err := monthFiles(e.Out, f)
+	if err != nil {
+		return err
+	}
+	for m, p := range existing {
+		if m.Year() == y && !keep[m] {
+			if err := os.Remove(p); err != nil {
+				return err
+			}
 		}
 	}
+	e.Log.Info("exported", parts...)
+	return nil
+}
+
+// WriteMonth writes the month file of month m (first day) from the chunks,
+// or removes it when there are no rows. It returns the number of rows.
+func (e *Exporter) WriteMonth(ctx context.Context, f obsdl.Frequency, m time.Time) (int, error) {
+	files, _ := filepath.Glob(filepath.Join(e.Store.Dir, "chunks", string(f), strconv.Itoa(m.Year()), "*.parquet"))
+	dst := MonthPath(e.Out, f, m)
+	if len(files) == 0 {
+		if err := os.Remove(dst); err != nil && !os.IsNotExist(err) {
+			return 0, err
+		}
+		return 0, nil
+	}
+	query, err := e.rowsSQL(ctx, f, m.Year())
+	if err != nil {
+		return 0, err
+	}
+	return writeRows(ctx, e.Store.DB, f, query,
+		fmt.Sprintf("date >= %s AND date < %s", dateLit(m), dateLit(m.AddDate(0, 1, 0))), dst)
+}
+
+// years returns the years to export for a frequency: the years changed
+// since the last export (all years with -all), the years of the recent
+// months and the years of month files that are no longer recent.
+func (e *Exporter) years(ctx context.Context, f obsdl.Frequency, months []time.Time) ([]int, error) {
+	set := map[int]bool{}
 	dirty, err := e.Store.DirtyYears(ctx, f)
 	if err != nil {
 		return nil, err
 	}
-	return append(out, dirty...), nil
+	for _, y := range dirty {
+		set[y] = true
+	}
+	if e.All {
+		entries, err := os.ReadDir(filepath.Join(e.Store.Dir, "chunks", string(f)))
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		for _, en := range entries {
+			if y, err := strconv.Atoi(en.Name()); err == nil && en.IsDir() {
+				set[y] = true
+			}
+		}
+	}
+	recent := map[time.Time]bool{}
+	for _, m := range months {
+		recent[m] = true
+		set[m.Year()] = true
+	}
+	existing, err := monthFiles(e.Out, f)
+	if err != nil {
+		return nil, err
+	}
+	for m := range existing {
+		if !recent[m] {
+			set[m.Year()] = true
+		}
+	}
+	out := make([]int, 0, len(set))
+	for y := range set {
+		out = append(out, y)
+	}
+	sort.Ints(out)
+	return out, nil
 }
 
 func (e *Exporter) exportStations(ctx context.Context) error {

@@ -90,11 +90,22 @@ it.
 
 ```
 stations/stations.parquet
-daily/year=YYYY/data.parquet        sorted by station_id, date
-hourly/year=YYYY/data.parquet       sorted by station_id, date, hour
+daily/year=YYYY/data.parquet        rows before the recent months, sorted by station_id, date
+daily/year=YYYY/YYYY-MM.parquet     rows of one recent month
+hourly/year=YYYY/data.parquet       the same, sorted by station_id, date, hour
+hourly/year=YYYY/YYYY-MM.parquet
 homogeneity_breaks/homogeneity_breaks.parquet
+manifest.json                       dates covered by the files
 README.md                           dataset card (YAML configs for the Hub)
 ```
+
+The recent months are the month of the latest date and the month before.
+Their values are still being revised by JMA, and the current month is
+updated every day (by `jwd month`, which needs only the current month
+files; see [operations.md](operations.md)). When the latest date moves into
+a new month, `export` moves the oldest month file into its year file. A
+month is never in both a year file and a month file; `daily/*/*.parquet`
+reads as one table (the hive key `year` is the directory).
 
 Yearly files keep each file in the order of 10–300 MB, let the Hub's
 viewer and SQL console read them, and limit a daily upload to the files of
@@ -126,24 +137,32 @@ chunks of those years.
    which avoids sending 15 elements for the ~680 rain-only stations.
 
 The backfill is resumable: a station-year is skipped when its chunk covers
-the whole year.
+the whole year (up to yesterday for the current year); a chunk that starts
+on Jan 1 but ends earlier (the current year of an earlier run) is fetched
+from its first missing day only.
 
-### 2. Daily update
+### 2. Updates
 
-`update` (run once a day after ~01:00 JST):
+The published dataset is updated daily (current month, `jwd month` on
+GitHub Actions) and monthly (`jwd monthly` on the crawl machine); see
+[operations.md](operations.md) for both. In short:
 
-- refetches the last `-lookback-days` (default 31) up to yesterday for
-  every active station (JMA restores or corrects recent data days to weeks
-  later), and
-- refreshes `-refresh-jobs` requests worth of the chunks fetched longest
-  ago (JMA also corrects data of past years; see `correctHistory.json`).
-  With ~100 refresh requests a day the whole archive is refetched roughly
-  once a year.
-- probes stations that appeared in the station list since the last run.
+- `month` refetches the last 3 days of the current month every day and
+  fills up to 3 missing days before them (JMA restores or corrects recent
+  data within days).
+- `monthly` refetches from the first day of the month before last to
+  yesterday (so a month is fetched again after it ended, then goes into
+  its year file), refetches 1/24 of the older station-years (JMA also
+  corrects data of past years; see `correctHistory.json`; the whole
+  archive is refetched every two years), and probes new stations.
+- `update` (the earlier daily command) still works on the crawl machine:
+  the last `-lookback-days` (31) for every active station plus
+  `-refresh-jobs` requests of the station-years fetched longest ago.
 
-Rate limits differ between the two modes: the backfill is a long, steady
-run (tens of thousands of requests over days) and should be run off-peak
-with the default interval; the daily update is about 150 requests.
+Rate limits differ between the modes: the backfill is a long, steady run
+(tens of thousands of requests over days) and should be run off-peak with
+the default interval; `month` is about 64 requests, `monthly` about 200
+plus the refresh (about 2,500).
 
 ### Failure handling
 
@@ -166,10 +185,21 @@ excessive load with automated tools, and answers HTTP 429 when busy).
 
 | detected as | from | behaviour |
 |---|---|---|
-| rate limited | HTTP 429 / 503, pages with 「アクセスが集中」「混み合」 | double the interval between requests (up to 60 s) for the rest of the run; wait 1, 2, 4 … up to 30 min (or `Retry-After` if longer) and retry; after `-max-rate-limit-hits` (6) consecutive hits stop with exit code 3 |
+| rate limited | HTTP 429 / 503, pages with 「アクセスが集中」「混み合」 | double the interval between requests (up to 60 s); wait 1, 2, 4 … up to 30 min (or `Retry-After` if longer) and retry; after `-max-rate-limit-hits` (6) consecutive hits stop with exit code 3 |
 | blocked | HTTP 401 / 403 / 451, pages with 「アクセス制限」「アクセスを拒否」, "Request blocked", "Access denied" | no retry; stop with exit code 4 |
 | maintenance | page with 「メンテナンス」 | no retry; stop with exit code 5 |
 | own quota | `-max-requests-per-24h N` (counted from the request log across runs) | stop before sending with exit code 6 |
+
+The interval is the pause between the end of a response and the next
+request. It starts at `-interval` (6 s) and comes down by 0.5 s after 50
+successful requests in a row, down to `-min-interval` (3 s); responses
+slower than 30 s reset the count (the server is busy). For an hour after a
+rate-limited response the interval stays at least 1 s above the interval at
+which it happened, so the crawler does not hit the limit again and again.
+`access_status.json` keeps the current interval and the last rate limit;
+a restart within 24 hours starts from the saved interval when it is longer
+than `-interval`, and keeps the hold. Changes are logged as
+`slowed_down` / `sped_up` events.
 
 How to notice:
 

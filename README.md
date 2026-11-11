@@ -6,10 +6,13 @@ from JMA's 「過去の気象データ・ダウンロード」 service and turns
 Parquet dataset that can be published on Hugging Face and queried with SQL.
 
 - One static binary (Go + embedded DuckDB).
-- Resumable full backfill, then a daily update that also picks up JMA's
+- Resumable full backfill, then a daily update of the current month that
+  runs on GitHub Actions without the crawl state, and a monthly run that
+  fetches the last months again and refreshes old years to pick up JMA's
   later corrections.
-- Polite to the source: one request at a time, ≥ 3 s apart, adaptive
-  slow-down on HTTP 429, requests packed up to the server's size limit,
+- Polite to the source: one request at a time, a pause of 6 s after each
+  response that adapts between 3 s and 60 s (doubled on HTTP 429, lowered
+  slowly while there are none), requests packed up to the server's size limit,
   optional cap on requests per 24 hours.
 - Access restrictions (rate limiting, blocking, maintenance) are detected,
   logged, recorded in `<data-dir>/access_status.json` and reported by exit
@@ -18,6 +21,10 @@ Parquet dataset that can be published on Hugging Face and queried with SQL.
 
 See [docs/source.md](docs/source.md) for how the source service works and
 [docs/dataset.md](docs/dataset.md) for the dataset layout and the update strategy.
+[docs/operations.md](docs/operations.md) describes the operation: the daily
+update of the current month on GitHub Actions (`jwd month`, implemented) and
+the planned monthly run (preliminary/final values, JMA's corrections,
+`jwd latest`; not implemented yet).
 
 ## Build
 
@@ -48,22 +55,46 @@ errors, persistent rate limiting or the own quota, and stops on a block or
 maintenance. `backfill -dry-run` prints the plan, `-max-jobs N` limits a run,
 `-stations` and `-from-year` / `-to-year` narrow it.
 
-Daily operation (after ~01:00 JST, when yesterday's values are available):
+Monthly run on the crawl machine (the 2nd of each month, ~05:00 JST;
+stations, the last two months again, 1/24 of the older years again,
+export, upload; see [docs/operations.md](docs/operations.md#monthly-update)):
 
 ```sh
-jwd stations                                   # weekly is enough
-jwd update -lookback-days 31 -refresh-jobs 100 # recent days + rolling refresh
-jwd export -out /data/dataset                  # rewrites changed years only
-hf upload <user>/<dataset> /data/dataset . --repo-type dataset
+JWD_DATA_DIR=/data/jwd scripts/jwd-monthly.sh ./bin/jwd <user>/<dataset> /data/dataset
 ```
 
-Global flags: `-interval` (default 3s), `-budget` (cells per request,
+Or put the settings in `.env` in the repository root (not committed) and
+run `scripts/jwd-monthly.sh` without the arguments (`./bin/jwd` is used):
+
+```sh
+JWD_DATA_DIR=/data/jwd
+JWD_EXPORT_DIR=/data/dataset
+HF_DATASET_REPO=<user>/<dataset>
+# HF_TOKEN=...   # otherwise the token of `hf auth login`
+```
+
+Daily update of the current month without the crawl state (what
+`.github/workflows/month.yml` runs):
+
+```sh
+m=$(TZ=Asia/Tokyo date -d yesterday +%Y-%m); y=${m%-*}
+hf download <user>/<dataset> --repo-type dataset --local-dir dataset \
+  --include manifest.json --include stations/stations.parquet \
+  --include "daily/year=$y/$m.parquet" --include "hourly/year=$y/$m.parquet"
+jwd month -dataset dataset          # last 3 days again + up to 3 missing days
+hf upload <user>/<dataset> dataset . --repo-type dataset \
+  --include manifest.json --include "daily/year=$y/$m.parquet" --include "hourly/year=$y/$m.parquet"
+```
+
+Global flags: `-interval` (initial pause after each response, default 6s),
+`-min-interval` (lower bound of the adaptive pause, default 3s), `-budget` (cells per request,
 default 100000, max 200000; larger requests time out), `-max-stations`, `-max-requests-per-24h`,
 `-max-rate-limit-hits`, `-keep-raw` (store the raw CSV responses),
 `-user-agent`.
 
 Exit codes: 0 ok, 1 error, 3 rate limited, 4 access blocked, 5 maintenance,
-6 request quota reached, 130 interrupted.
+6 request quota reached, 7 days missing from the month file beyond
+`month -max-gap-days`, 130 interrupted.
 
 ## Data license
 

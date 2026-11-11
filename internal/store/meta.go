@@ -179,6 +179,13 @@ func (s *Store) Chunks(ctx context.Context, f obsdl.Frequency) (map[string]map[i
 	return out, rows.Err()
 }
 
+// CountChunks returns the number of chunks of a frequency up to maxYear.
+func (s *Store) CountChunks(ctx context.Context, f obsdl.Frequency, maxYear int) (int, error) {
+	var n int
+	err := s.DB.QueryRowContext(ctx, `SELECT count(*) FROM chunks WHERE frequency = ? AND year <= ?`, string(f), maxYear).Scan(&n)
+	return n, err
+}
+
 // OldestChunks returns up to n chunks fetched before cutoff, oldest first.
 func (s *Store) OldestChunks(ctx context.Context, f obsdl.Frequency, before time.Time, maxYear, n int) ([]Chunk, error) {
 	rows, err := s.DB.QueryContext(ctx, `

@@ -213,7 +213,14 @@ func (c *Crawler) Backfill(ctx context.Context, o BackfillOptions) error {
 		return err
 	}
 	yesterday := c.Yesterday()
-	byYear := map[int][]unit{}
+	// A station-year is fetched from its first missing day: a chunk that
+	// starts on Jan 1 but ends before yesterday (the current year of an
+	// earlier run) only needs its tail.
+	type span struct {
+		year int
+		from time.Time
+	}
+	bySpan := map[span][]unit{}
 	for _, st := range stations {
 		first, last, ok := c.yearRange(o.Frequency, st)
 		if !ok {
@@ -227,23 +234,32 @@ func (c *Crawler) Backfill(ctx context.Context, o BackfillOptions) error {
 		}
 		els := elementsFor(o.Frequency, st)
 		for y := first; y <= last; y++ {
+			from := time.Date(y, 1, 1, 0, 0, 0, 0, time.UTC)
 			end := minTime(time.Date(y, 12, 31, 0, 0, 0, 0, time.UTC), yesterday)
-			if ch, ok := chunks[st.ID][y]; ok && !ch.From.After(time.Date(y, 1, 1, 0, 0, 0, 0, time.UTC)) && !ch.To.Before(end) {
-				continue
+			if ch, ok := chunks[st.ID][y]; ok && !ch.From.After(from) {
+				if !ch.To.Before(end) {
+					continue
+				}
+				from = ch.To.AddDate(0, 0, 1)
 			}
-			byYear[y] = append(byYear[y], unit{station: st.ID, elements: els})
+			k := span{y, from}
+			bySpan[k] = append(bySpan[k], unit{station: st.ID, elements: els})
 		}
 	}
-	years := make([]int, 0, len(byYear))
-	for y := range byYear {
-		years = append(years, y)
+	spans := make([]span, 0, len(bySpan))
+	for k := range bySpan {
+		spans = append(spans, k)
 	}
-	sort.Sort(sort.Reverse(sort.IntSlice(years)))
+	sort.Slice(spans, func(i, j int) bool {
+		if spans[i].year != spans[j].year {
+			return spans[i].year > spans[j].year
+		}
+		return spans[i].from.Before(spans[j].from)
+	})
 	var jobs []job
-	for _, y := range years {
-		from := time.Date(y, 1, 1, 0, 0, 0, 0, time.UTC)
-		to := minTime(time.Date(y, 12, 31, 0, 0, 0, 0, time.UTC), yesterday)
-		jobs = append(jobs, c.pack("backfill", o.Frequency, byYear[y], from, to, withOverlap)...)
+	for _, k := range spans {
+		to := minTime(time.Date(k.year, 12, 31, 0, 0, 0, 0, time.UTC), yesterday)
+		jobs = append(jobs, c.pack("backfill", o.Frequency, bySpan[k], k.from, to, withOverlap)...)
 	}
 	return c.execute(ctx, jobs, o.MaxJobs, o.DryRun)
 }
@@ -314,12 +330,9 @@ func (c *Crawler) Update(ctx context.Context, o UpdateOptions) error {
 	}
 	yesterday := c.Yesterday()
 	from := yesterday.AddDate(0, 0, -(o.LookbackDays - 1))
-	var active, unprobed []*store.StationRow
-	for _, st := range stations {
-		if !st.Listed || (st.EndedOn != nil && st.EndedOn.Before(from)) {
-			continue
-		}
-		active = append(active, st)
+	active := activeStations(stations, from)
+	var unprobed []*store.StationRow
+	for _, st := range active {
 		if st.Coverage[obsdl.Daily] == nil || st.Coverage[obsdl.Hourly] == nil {
 			unprobed = append(unprobed, st)
 		}
@@ -335,14 +348,7 @@ func (c *Crawler) Update(ctx context.Context, o UpdateOptions) error {
 	}
 	var jobs []job
 	for _, f := range []obsdl.Frequency{obsdl.Daily, obsdl.Hourly} {
-		var units []unit
-		for _, st := range active {
-			if cov := st.Coverage[f]; cov != nil && (cov.FirstYear == 0 || cov.LastYear < from.Year()-1) {
-				continue // no recent data
-			}
-			units = append(units, unit{station: st.ID, elements: elementsFor(f, st)})
-		}
-		jobs = append(jobs, c.pack("update", f, units, from, yesterday, withOverlap)...)
+		jobs = append(jobs, c.pack("update", f, recentUnits(f, active, from), from, yesterday, withOverlap)...)
 	}
 	if o.RefreshJobs > 0 {
 		refresh, err := c.refreshJobs(ctx, stations, from, o)
@@ -356,11 +362,6 @@ func (c *Crawler) Update(ctx context.Context, o UpdateOptions) error {
 
 // refreshJobs plans requests for the chunks fetched longest ago.
 func (c *Crawler) refreshJobs(ctx context.Context, stations []*store.StationRow, windowFrom time.Time, o UpdateOptions) ([]job, error) {
-	byID := map[string]*store.StationRow{}
-	for _, st := range stations {
-		byID[st.ID] = st
-	}
-	yesterday := c.Yesterday()
 	var out []job
 	for _, f := range []obsdl.Frequency{obsdl.Daily, obsdl.Hourly} {
 		// Fetch more candidates than needed; packing merges them.
@@ -368,25 +369,7 @@ func (c *Crawler) refreshJobs(ctx context.Context, stations []*store.StationRow,
 		if err != nil {
 			return nil, err
 		}
-		byYear := map[int][]unit{}
-		for _, ch := range chunks {
-			st := byID[ch.Station]
-			if st == nil {
-				continue
-			}
-			byYear[ch.Year] = append(byYear[ch.Year], unit{station: st.ID, elements: elementsFor(f, st)})
-		}
-		years := make([]int, 0, len(byYear))
-		for y := range byYear {
-			years = append(years, y)
-		}
-		sort.Ints(years)
-		var jobs []job
-		for _, y := range years {
-			from := time.Date(y, 1, 1, 0, 0, 0, 0, time.UTC)
-			to := minTime(time.Date(y, 12, 31, 0, 0, 0, 0, time.UTC), yesterday)
-			jobs = append(jobs, c.pack("refresh", f, byYear[y], from, to, withOverlap)...)
-		}
+		jobs := c.chunkJobs("refresh", f, stations, chunks)
 		n := (o.RefreshJobs + 1) / 2
 		if len(jobs) > n {
 			jobs = jobs[:n]
@@ -394,4 +377,34 @@ func (c *Crawler) refreshJobs(ctx context.Context, stations []*store.StationRow,
 		out = append(out, jobs...)
 	}
 	return out, nil
+}
+
+// chunkJobs plans requests that refetch whole station-years (up to
+// yesterday), packed per year.
+func (c *Crawler) chunkJobs(purpose string, f obsdl.Frequency, stations []*store.StationRow, chunks []store.Chunk) []job {
+	byID := map[string]*store.StationRow{}
+	for _, st := range stations {
+		byID[st.ID] = st
+	}
+	yesterday := c.Yesterday()
+	byYear := map[int][]unit{}
+	for _, ch := range chunks {
+		st := byID[ch.Station]
+		if st == nil {
+			continue
+		}
+		byYear[ch.Year] = append(byYear[ch.Year], unit{station: st.ID, elements: elementsFor(f, st)})
+	}
+	years := make([]int, 0, len(byYear))
+	for y := range byYear {
+		years = append(years, y)
+	}
+	sort.Ints(years)
+	var jobs []job
+	for _, y := range years {
+		from := time.Date(y, 1, 1, 0, 0, 0, 0, time.UTC)
+		to := minTime(time.Date(y, 12, 31, 0, 0, 0, 0, time.UTC), yesterday)
+		jobs = append(jobs, c.pack(purpose, f, byYear[y], from, to, withOverlap)...)
+	}
+	return jobs
 }

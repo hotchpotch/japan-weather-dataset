@@ -1,0 +1,81 @@
+# Daily update of the current month files of the Hugging Face dataset
+# (docs/operations.md, "Daily update of the current month").
+#
+# Needs the repository variable HF_DATASET_REPO (e.g. user/japan-weather)
+# and the secret HF_TOKEN (write access to that dataset). Everything older
+# than the current month is written by the monthly run on another machine.
+name: month
+
+on:
+  schedule:
+    - cron: "17 20 * * *" # 05:17 JST, after JMA's 01:00/03:00 updates; not on the hour
+  workflow_dispatch:
+    inputs:
+      refetch_days:
+        description: last days up to yesterday fetched again
+        default: "3"
+      max_gap_days:
+        description: missing days before them filled at most
+        default: "3"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: month
+  cancel-in-progress: false
+
+jobs:
+  month:
+    # Forks must not send requests to JMA on a schedule.
+    if: github.repository == 'hotchpotch/japan-weather-dataset'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      HF_REPO: ${{ vars.HF_DATASET_REPO }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: astral-sh/setup-uv@v6
+      - name: Build
+        run: go build -o bin/jwd ./cmd/jwd
+
+      - name: Download the metadata and the current month files
+        run: |
+          month=$(TZ=Asia/Tokyo date -d yesterday +%Y-%m)
+          year=${month%-*}
+          echo "MONTH=$month" >> "$GITHUB_ENV"
+          echo "YEAR=$year" >> "$GITHUB_ENV"
+          # Only small files: the month files do not exist yet on the 1st.
+          uvx --from huggingface_hub hf download "$HF_REPO" --repo-type dataset --local-dir dataset \
+            --include manifest.json --include stations/stations.parquet \
+            --include "daily/year=$year/$month.parquet" --include "hourly/year=$year/$month.parquet"
+          ls -lR dataset
+
+      - name: Update the month files
+        id: month
+        run: |
+          set +e
+          ./bin/jwd -interval 6s -min-interval 5s month -dataset dataset \
+            -refetch-days "${{ inputs.refetch_days || '3' }}" -max-gap-days "${{ inputs.max_gap_days || '3' }}"
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          # 7: days are missing beyond -max-gap-days; upload what was fetched, fail afterwards.
+          if [ "$code" -ne 0 ] && [ "$code" -ne 7 ]; then exit "$code"; fi
+
+      - name: Upload
+        run: |
+          latest=$(jq -r '.daily.latest_date // "-"' dataset/manifest.json)
+          uvx --from huggingface_hub hf upload "$HF_REPO" dataset . --repo-type dataset \
+            --include manifest.json --include "daily/year=$YEAR/$MONTH.parquet" --include "hourly/year=$YEAR/$MONTH.parquet" \
+            --commit-message "Update $MONTH up to $latest"
+
+      - name: Report missing days
+        if: steps.month.outputs.code == '7'
+        run: |
+          jq '{daily: .daily.month_files, hourly: .hourly.month_files}' dataset/manifest.json
+          echo "::error::days are missing from the month files; the monthly run has to fill them"
+          exit 1
