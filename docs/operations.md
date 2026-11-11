@@ -177,6 +177,18 @@ write access to the dataset. A run takes about 10 minutes. In a private
 repository it uses the included Actions minutes (a standard runner there
 has 2 vCPUs, which is enough).
 
+Logs: jwd logs every request while the job runs (shown live on the run's
+page; `gh run view --log` only after the job ends): `job progress=i/N
+elapsed=… eta=…` before a request (the estimate is the average time of a
+request so far times the requests left) and `stored rows=…` after it, and
+`finished jobs` with the totals. At the end, `jwd month` and `jwd monthly`
+append a table to the job summary of the run (the file named by
+`GITHUB_STEP_SUMMARY`, mounted into the container by both workflows): the
+result and exit code, the elapsed time, the data requests and their rows,
+the access limits met (rate limits, blocks) and the latest day, year files
+and month files (with missing days) of `manifest.json`. The scripts add
+the commit of the upload, or that it failed.
+
 The same script runs outside GitHub with `.env` (or the environment)
 providing `HF_DATASET_REPO`, `HF_TOKEN` and `JWD_EXPORT_DIR` (a work
 directory).

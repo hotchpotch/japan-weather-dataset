@@ -35,6 +35,22 @@ done
 
 log() { echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') jwd-monthly: $*" >&2; }
 
+# Adds a line to the job summary of GitHub Actions (after jwd's own).
+summary() { if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then echo "$*" >>"$GITHUB_STEP_SUMMARY"; fi; }
+
+# upload runs hf upload with the given arguments and reports the commit in
+# the job summary.
+upload() {
+  local res url
+  if ! res=$("${hf[@]}" upload "$@"); then
+    summary "**Upload to $repo failed.**"
+    return 1
+  fi
+  echo "$res"
+  url=$(grep -o 'https://huggingface.co/[^ ]*/commit/[0-9a-f]*' <<<"$res" | tail -n 1)
+  summary "Uploaded to $repo: ${url:-$res}"
+}
+
 # The years jwd monthly reads (crawl.MonthlyYears): from the year of the
 # first day of the month two months before yesterday's month (JST) to
 # yesterday's year.
@@ -64,7 +80,7 @@ log "uploading to $repo (latest $latest)"
 # Only the downloaded and written files are in $out; unchanged ones are
 # skipped by the Hub client. Month files that are no longer here went into
 # a year file and are deleted on the Hub.
-"${hf[@]}" upload "$repo" "$out" . --repo-type dataset \
+upload "$repo" "$out" . --repo-type dataset \
   --exclude ".cache/*" \
   --delete "*/year=*/????-??.parquet" \
   --commit-message "Monthly update up to $latest" || exit 1

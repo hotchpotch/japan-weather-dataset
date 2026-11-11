@@ -167,3 +167,20 @@ func TestFetchJobLowersLimitOnServerError(t *testing.T) {
 	}
 	t.Logf("first job failures %d, limit %d, second job requests %v", failures, c.limit, sent)
 }
+
+func TestETA(t *testing.T) {
+	for _, c := range []struct {
+		done, total int
+		elapsed     time.Duration
+		want        string
+	}{
+		{0, 10, 0, "-"},
+		{1, 10, 8 * time.Second, "1m12s"},
+		{126, 195, 24 * time.Minute, "13m9s"},
+		{10, 10, time.Minute, "0s"},
+	} {
+		if got := eta(c.done, c.total, c.elapsed); got != c.want {
+			t.Errorf("eta(%d, %d, %v) = %s, want %s", c.done, c.total, c.elapsed, got, c.want)
+		}
+	}
+}

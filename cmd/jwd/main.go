@@ -174,6 +174,7 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 	}
 	var client *obsdl.Client
 	var lastEvent *obsdl.AccessEvent
+	limits := map[obsdl.AccessEventKind]int{}
 	client = obsdl.NewClient(obsdl.Options{
 		UserAgent:        g.userAgent,
 		Interval:         g.interval,
@@ -183,6 +184,9 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 		Logger:           log,
 		OnAccessEvent: func(ev obsdl.AccessEvent) {
 			lastEvent = &ev
+			if ev.Kind != obsdl.EventRecovered && ev.Kind != obsdl.EventSpedUp {
+				limits[ev.Kind]++
+			}
 			if err := st.RecordAccessEvent(context.WithoutCancel(ctx), ev); err != nil {
 				log.Warn("record access event", "err", err)
 			}
@@ -227,6 +231,23 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 				}
 			}
 			writeStatus(st, log, state, cmd, client, lastEvent, msg)
+		}()
+	}
+	// The dataset directory and -dry-run of month and monthly, for the job
+	// summary.
+	var dataset *string
+	var dryRun *bool
+	if cmd == "month" || cmd == "monthly" {
+		start := time.Now()
+		defer func() {
+			s := runSummary{cmd: cmd, err: err, dryRun: dryRun != nil && *dryRun, elapsed: time.Since(start),
+				stats: c.Stats(), events: limits}
+			if dataset != nil && !s.dryRun {
+				s.manifest, _ = export.ReadManifest(*dataset)
+			}
+			if err := appendSummary(s); err != nil {
+				log.Warn("job summary", "err", err)
+			}
 		}()
 	}
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
@@ -283,9 +304,9 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 		return c.Update(ctx, crawl.UpdateOptions{LookbackDays: *lookback, RefreshJobs: *refresh, RefreshAge: *refreshAge, DryRun: *dryRun})
 
 	case "monthly":
-		dataset := fs.String("dataset", env("JWD_EXPORT_DIR", "dataset"), "dataset directory with stations, homogeneity breaks, manifest.json, the month files and the year files of the recent years (env JWD_EXPORT_DIR)")
+		dataset = fs.String("dataset", env("JWD_EXPORT_DIR", "dataset"), "dataset directory with stations, homogeneity breaks, manifest.json, the month files and the year files of the recent years (env JWD_EXPORT_DIR)")
 		skipStations := fs.Bool("skip-stations", false, "do not download the station list")
-		dryRun := fs.Bool("dry-run", false, "print the plan without requesting or writing")
+		dryRun = fs.Bool("dry-run", false, "print the plan without requesting or writing")
 		fs.Parse(args)
 		return c.Monthly(ctx, crawl.MonthlyOptions{Dataset: *dataset, SkipStations: *skipStations, DryRun: *dryRun})
 
@@ -296,11 +317,11 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 		return (&export.Exporter{Store: st, Out: *out, Log: log, All: *all}).Run(ctx)
 
 	case "month":
-		dataset := fs.String("dataset", env("JWD_EXPORT_DIR", "dataset"), "dataset directory with stations/stations.parquet and the current month files (env JWD_EXPORT_DIR)")
+		dataset = fs.String("dataset", env("JWD_EXPORT_DIR", "dataset"), "dataset directory with stations/stations.parquet and the current month files (env JWD_EXPORT_DIR)")
 		freqs := fs.String("frequency", "daily,hourly", "comma separated frequencies")
 		refetch := fs.Int("refetch-days", 3, "last days up to yesterday fetched on every run")
 		maxGap := fs.Int("max-gap-days", 3, "missing days before them filled at most (more: exit code 7)")
-		dryRun := fs.Bool("dry-run", false, "print the plan without requesting or writing")
+		dryRun = fs.Bool("dry-run", false, "print the plan without requesting or writing")
 		fs.Parse(args)
 		o := crawl.MonthOptions{Dataset: *dataset, RefetchDays: *refetch, MaxGapDays: *maxGap, DryRun: *dryRun}
 		for _, name := range strings.Split(*freqs, ",") {

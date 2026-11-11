@@ -60,7 +60,19 @@ type Crawler struct {
 	limit int
 	// fetchFunc replaces fetch in tests.
 	fetchFunc func(ctx context.Context, purpose string, req obsdl.TableRequest) (*obsdl.Table, int64, error)
+	// stats counts the stored responses of this run.
+	stats RunStats
 }
+
+// RunStats are the data responses stored by a run and their rows.
+type RunStats struct {
+	Requests int
+	Rows     int
+	Warnings int
+}
+
+// Stats returns what the run has stored so far.
+func (c *Crawler) Stats() RunStats { return c.stats }
 
 // minLimit is the smallest request size limit lowers to.
 const minLimit = 1_000
@@ -270,6 +282,9 @@ func (c *Crawler) store(ctx context.Context, j job, tab *obsdl.Table, id int64) 
 			return err
 		}
 	}
+	c.stats.Requests++
+	c.stats.Rows += rows
+	c.stats.Warnings += warnings
 	c.Log.Info("stored", "job", j.String(), "rows", rows, "warnings", warnings, "elapsed", time.Since(start).Round(time.Millisecond))
 	return nil
 }
@@ -453,14 +468,31 @@ func (c *Crawler) runJobs(ctx context.Context, jobs []job) error {
 		total += j.Req.Cells()
 	}
 	c.Log.Info("starting jobs", "jobs", len(jobs), "cells", total)
+	start := time.Now()
+	before := c.stats
 	for i, j := range jobs {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		c.Log.Info("job", "progress", fmt.Sprintf("%d/%d", i+1, len(jobs)), "job", j.String())
+		elapsed := time.Since(start)
+		c.Log.Info("job", "progress", fmt.Sprintf("%d/%d", i+1, len(jobs)), "elapsed", elapsed.Round(time.Second),
+			"eta", eta(i, len(jobs), elapsed), "job", j.String())
 		if err := c.run(ctx, j); err != nil {
 			return fmt.Errorf("%s: %w", j.String(), err)
 		}
 	}
+	c.Log.Info("finished jobs", "jobs", len(jobs), "requests", c.stats.Requests-before.Requests,
+		"rows", c.stats.Rows-before.Rows, "warnings", c.stats.Warnings-before.Warnings,
+		"elapsed", time.Since(start).Round(time.Second))
 	return nil
+}
+
+// eta estimates the time left after done of total jobs took elapsed, from
+// the average time of a job ("-" before the first job ends). The pace is
+// set mostly by the interval between requests, so jobs count alike.
+func eta(done, total int, elapsed time.Duration) string {
+	if done == 0 {
+		return "-"
+	}
+	return (elapsed / time.Duration(done) * time.Duration(total-done)).Round(time.Second).String()
 }

@@ -115,6 +115,7 @@ func partialCopy(t *testing.T, src string, years ...int) string {
 type monthlyRun struct {
 	requests []string
 	dataset  string
+	stats    RunStats
 }
 
 func runMonthly(t *testing.T, dataset string, at time.Time) (*monthlyRun, error) {
@@ -131,7 +132,9 @@ func runMonthly(t *testing.T, dataset string, at time.Time) (*monthlyRun, error)
 		r.requests = append(r.requests, req.From.Format(time.DateOnly)+".."+req.To.Format(time.DateOnly)+" "+strings.Join(req.Stations, ","))
 		return fakeTable(req, func(time.Time) string { return "2" }), int64(len(r.requests)), nil
 	}
-	return r, c.Monthly(context.Background(), MonthlyOptions{Dataset: dataset, SkipStations: true})
+	err = c.Monthly(context.Background(), MonthlyOptions{Dataset: dataset, SkipStations: true})
+	r.stats = c.Stats()
+	return r, err
 }
 
 func (r *monthlyRun) count(t *testing.T, rel, where string) int {
@@ -164,6 +167,10 @@ func TestMonthly(t *testing.T) {
 	}
 	if got := strings.Join(r.requests, " "); got != "2026-09-30..2026-12-01 a0001,a0002" {
 		t.Errorf("requests = %s", got)
+	}
+	// 10-01..12-01 (62 days) for two stations; the overlap day is not stored.
+	if r.stats != (RunStats{Requests: 1, Rows: 62 * 2}) {
+		t.Errorf("stats = %+v", r.stats)
 	}
 	for rel, want := range map[string]bool{
 		"daily/year=2026/data.parquet":    true,

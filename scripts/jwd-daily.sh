@@ -30,6 +30,22 @@ fi
 
 log() { echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') jwd-daily: $*" >&2; }
 
+# Adds a line to the job summary of GitHub Actions (after jwd's own).
+summary() { if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then echo "$*" >>"$GITHUB_STEP_SUMMARY"; fi; }
+
+# upload runs hf upload with the given arguments and reports the commit in
+# the job summary.
+upload() {
+  local res url
+  if ! res=$("${hf[@]}" upload "$@"); then
+    summary "**Upload to $repo failed.**"
+    return 1
+  fi
+  echo "$res"
+  url=$(grep -o 'https://huggingface.co/[^ ]*/commit/[0-9a-f]*' <<<"$res" | tail -n 1)
+  summary "Uploaded to $repo: ${url:-$res}"
+}
+
 # The month of yesterday in JST: on the 1st this is the month before, whose
 # file is still current until the monthly run.
 month=$(TZ=Asia/Tokyo date -d yesterday +%Y-%m)
@@ -54,7 +70,7 @@ latest=$(jq -r '.daily.latest_date // "-"' "$out/manifest.json")
 log "uploading $month up to $latest"
 include=()
 for f in "${files[@]}"; do include+=(--include "$f"); done
-"${hf[@]}" upload "$repo" "$out" . --repo-type dataset "${include[@]}" \
+upload "$repo" "$out" . --repo-type dataset "${include[@]}" \
   --commit-message "Update $month up to $latest" || exit 1
 
 if [ "$code" -eq 7 ]; then

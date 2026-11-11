@@ -51,10 +51,13 @@ jobs:
           HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run && '-dry-run' || '' }}
+        # The job summary (requests, access limits, month files, the
+        # commit) is written to the mounted GITHUB_STEP_SUMMARY.
         run: |
           mkdir -p "$RUNNER_TEMP/dataset"
           # shellcheck disable=SC2086 # DRY_RUN is empty or one flag
           docker run --rm --init --user "$(id -u):$(id -g)" \
             -e HF_DATASET_REPO -e HF_TOKEN \
+            -e GITHUB_STEP_SUMMARY=/summary.md -v "$GITHUB_STEP_SUMMARY:/summary.md" \
             -v "$RUNNER_TEMP/dataset:/dataset" "$JWD_IMAGE" \
             jwd-monthly.sh $DRY_RUN

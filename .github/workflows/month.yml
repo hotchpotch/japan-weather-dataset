@@ -59,5 +59,6 @@ jobs:
           mkdir -p "$RUNNER_TEMP/dataset"
           docker run --rm --init --user "$(id -u):$(id -g)" \
             -e HF_DATASET_REPO -e HF_TOKEN -e GITHUB_ACTIONS \
+            -e GITHUB_STEP_SUMMARY=/summary.md -v "$GITHUB_STEP_SUMMARY:/summary.md" \
             -v "$RUNNER_TEMP/dataset:/dataset" "$JWD_IMAGE" \
             jwd-daily.sh -refetch-days "$REFETCH_DAYS" -max-gap-days "$MAX_GAP_DAYS"
