@@ -37,6 +37,8 @@ AMeDAS network, converted to Parquet and updated every day.
 - Latest day: {{.LatestDate}} (JST). Values of recent days are preliminary and may be revised by JMA.
 - Generated: {{.GeneratedAt}}
 - Built with <https://github.com/hotchpotch/japan-weather-dataset>
+- Local copies, freshness and updating them yourself: <https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/local-copy.md>
+- Agent skill (Claude Code, Codex) with SQL recipes and pitfalls: <https://github.com/hotchpotch/japan-weather-dataset/tree/main/.agents/skills/japan-weather>
 
 **This dataset is not published by JMA or the Government of Japan.** It is a
 processed copy made by a third party. Check important values against the
@@ -135,4 +137,4 @@ missing days.
 - Station ids are obsdl ids: `s` + WMO-style 5 digits for official stations, `a` + 4 digits for AMeDAS stations.
 - Station positions are the current (or last) positions given in degrees and 0.1 minutes; past relocations are not reflected.
 - AMeDAS sunshine duration since March 2021 is estimated from satellite data by JMA.
-- JMA corrects past values from time to time. The last days are fetched again every day, the month before after it ended, and older years are refreshed on a rolling basis.
+- JMA corrects past values from time to time. The last days are fetched again every day and the month before once more after it ended (then it moves into its year file); older years are not fetched again (applying JMA's announced corrections is planned).
