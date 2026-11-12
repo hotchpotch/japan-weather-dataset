@@ -131,10 +131,10 @@ Wind directions are 16-point codes: 1 = NNE, 2 = NE, …, 15 = NNW, 16 = N, 0 = 
 
 `daily/year=YYYY/data.parquet` and `hourly/year=YYYY/data.parquet` hold the
 rows up to the month before the recent months; the recent months (the month
-of the latest day and the month before) are in
+of the day after the latest day and the month before) are in
 `daily/year=YYYY/YYYY-MM.parquet` and `hourly/year=YYYY/YYYY-MM.parquet`.
-The current month is updated every day; when a new month starts, the oldest
-month file is merged into its year file. Read `daily/*/*.parquet` to get all
+The current month is updated every day; when a month ends, the monthly
+update (the 1st, 20:00 JST) merges the oldest month file into its year file. Read `daily/*/*.parquet` to get all
 rows. `manifest.json` lists the latest date and the month files with their
 missing days.
 

@@ -5,7 +5,7 @@
 # Needs the repository variable HF_DATASET_REPO (e.g. user/japan-weather)
 # and the secret HF_TOKEN (write access to that dataset). The months before
 # are rewritten by the monthly run (monthly.yml).
-name: month
+name: daily
 
 on:
   schedule:
@@ -24,7 +24,8 @@ permissions:
   packages: read
 
 # The same group as monthly.yml: both rewrite manifest.json and the month
-# files, so they run one after the other.
+# files, so they run one after the other (the monthly run starts at 20:00
+# JST, long after this one, so they rarely meet).
 concurrency:
   group: hf-dataset
   cancel-in-progress: false
@@ -34,7 +35,7 @@ env:
   JWD_IMAGE: ghcr.io/hotchpotch/japan-weather-dataset:latest # moved by each release (release.yml)
 
 jobs:
-  month:
+  daily:
     # Forks must not send requests to JMA on a schedule.
     if: github.repository == 'hotchpotch/japan-weather-dataset'
     runs-on: ubuntu-26.04

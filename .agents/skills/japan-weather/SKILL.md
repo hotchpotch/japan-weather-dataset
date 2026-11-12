@@ -71,9 +71,10 @@ Columns, daily vs hourly, the hour convention and `manifest.json`:
 - Daily from 1872-01-01, hourly from 1885-01-01, both to yesterday (JST).
 - The Hub is updated every day around 05:30 JST (the last 3 days of the
   current month are fetched again; recent values are preliminary and JMA
-  revises them for days). The previous month is fetched again on the 2nd of
-  the next month and merged into its year file; older years are treated as
-  final (JMA's announced corrections are not applied yet).
+  revises them for days). The previous month is fetched again on the 1st of
+  the next month (20:00 JST) and once more a month later, when it is merged
+  into its year file; older years are treated as final (JMA's announced
+  corrections are not applied yet).
 - Days after `year_files_through` are in month files and may still change.
 - Details and how to fetch days newer than the Hub yourself (`jwd month`
   with Go or Docker):

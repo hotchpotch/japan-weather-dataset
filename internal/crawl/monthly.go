@@ -26,11 +26,13 @@ type MonthlyOptions struct {
 }
 
 // monthlyFrom is the first day refetched by the monthly run: the first day
-// of the month before the month before the month of yesterday. On 12-02
-// (yesterday 12-01) it is 10-01: October and November are fetched again
-// after they ended, and October goes into the year file at export.
+// of the month two months before the month of today (the day after
+// yesterday). On 12-01 (yesterday 11-30) and on 12-02 it is 10-01: October
+// and November are fetched again after they ended, and October goes into
+// the year file at export (export.RecentMonths counts from the same day).
 func monthlyFrom(yesterday time.Time) time.Time {
-	return time.Date(yesterday.Year(), yesterday.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -2, 0)
+	today := yesterday.AddDate(0, 0, 1)
+	return time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -2, 0)
 }
 
 // MonthlyYears returns the years whose files the monthly run reads and

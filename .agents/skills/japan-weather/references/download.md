@@ -63,9 +63,10 @@ the next download incremental) and keep the directory out of git.
 Note for an incremental copy: when a month ends, the monthly update moves
 the oldest month file into the year file and **deletes the month file on the
 Hub**. `hf download` does not delete local files, so a stale month file can
-remain next to an updated year file and duplicate rows. After the 2nd of a
-month, delete the local month files that `manifest.json` no longer lists
-(or the whole year directory) and download again:
+remain next to an updated year file and duplicate rows. After the monthly
+update (the 1st of a month, 20:00 JST), delete the local month files that
+`manifest.json` no longer lists (or the whole year directory) and download
+again:
 
 ```sh
 jq -r '.daily.month_files[].path, .hourly.month_files[].path' $DIR/manifest.json   # files that should exist

@@ -10,10 +10,10 @@ or for a dataset of your own.
 
 | part | updated | by |
 |---|---|---|
-| current month files (`*/year=YYYY/YYYY-MM.parquet`) | every day, up to yesterday (starts 05:17 JST, takes about 10 min) | `month.yml` (`jwd month`) |
-| previous month | fetched again on the 2nd of the next month, then merged into its year file | `monthly.yml` (`jwd monthly`) |
+| current month files (`*/year=YYYY/YYYY-MM.parquet`) | every day, up to yesterday (starts 05:17 JST, takes about 10 min) | `daily.yml` (`jwd month`) |
+| previous months | fetched again on the 1st of the next month (20:00 JST) and once more a month later, when it goes into its year file | `monthly.yml` (`jwd monthly`) |
 | older years (`*/year=YYYY/data.parquet`) | not refetched; JMA's announced corrections are planned | |
-| stations, homogeneity breaks | on the 2nd of each month | `monthly.yml` |
+| stations, homogeneity breaks | on the 1st of each month (20:00 JST) | `monthly.yml` |
 
 `manifest.json` says what the files cover: `latest_date` (last day),
 `year_files_through` (last day in the year files; later days are

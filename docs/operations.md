@@ -15,10 +15,10 @@ work on them in a temporary state and upload what they wrote.
 
 | | daily | monthly |
 |---|---|---|
-| when | every day, 05:17 JST | the 2nd of each month, 06:17 JST |
-| workflow / script | `month.yml` / `jwd-daily.sh` (`jwd month`) | `monthly.yml` / `jwd-monthly.sh` (`jwd monthly`) |
+| when | every day, 05:17 JST | the 1st of each month, 20:00 JST |
+| workflow / script | `daily.yml` / `jwd-daily.sh` (`jwd month`) | `monthly.yml` / `jwd-monthly.sh` (`jwd monthly`) |
 | downloads from the Hub | `manifest.json`, `stations.parquet`, the current month files (~5 MB) | the metadata, all month files, the year files of the recent years (~50 MB) |
-| fetches | the last 3 days of the current month, up to 3 missing days before them | the station list; the month before last to yesterday |
+| fetches | the last 3 days of the current month, up to 3 missing days before them | the station list; the two months before the current one to yesterday |
 | writes | the current month files, `manifest.json` | the year files of the recent years, month files (deletes the merged one), stations, homogeneity breaks, card, manifest |
 | requests / time | ~64 / ~9 min (measured) | ~260 / ~40 min (planned from 195 + 61 requests) |
 | probes new stations | no | yes |
@@ -28,8 +28,8 @@ from the recent years and all month files, the daily job from its month
 files plus the entries of the downloaded manifest for files it did not
 download (entries more than two months before the current month are
 dropped as stale). They share a concurrency group, so they never run at
-the same time; the monthly run on the 2nd starts after the daily one and
-leaves a complete manifest.
+the same time; the monthly run on the evening of the 1st starts long after
+the daily one of the morning and leaves a complete manifest.
 
 Both run the latest released image (`:latest`, see
 [releases](#releases-and-the-image)), so a change reaches them only with a
@@ -82,23 +82,26 @@ manifest.json
 README.md
 ```
 
-The recent months are the month of the latest date and the month before;
-`jwd export` writes them as month files and everything older into the year
-files. When the latest date moves into a new month, the next export moves
-the oldest month file into its year file and deletes the month file. A
+The recent months are the month of the day after the latest date and the
+month before; `jwd export` writes them as month files (a month without rows
+gets none) and everything older into the year files. When the latest date
+reaches the end of a month, the next export moves the oldest month file into
+its year file and deletes the month file. A
 month is never in both. Readers glob `daily/*/*.parquet` and see one table.
 
 Example, December 2026:
 
 ```
 hourly/year=2026/data.parquet       2026-01 .. 2026-10   monthly run
-hourly/year=2026/2026-11.parquet    November             monthly run (fetched again after 11-30)
+hourly/year=2026/2026-11.parquet    November             monthly run (fetched again on 12-01)
 hourly/year=2026/2026-12.parquet    December             jwd month, every day
 ```
 
-On the first day of a month there can be three month files (the
-`jwd month` run of 12-02 starts December before the monthly run moved
-October). That is valid: the files do not overlap.
+Counting from the day after the latest date makes the monthly run of 12-01
+(latest date 11-30) move October already, so November is the only month
+file until the daily job of 12-02 starts December. If the monthly run fails,
+the daily jobs go on and there are three month files until it is repeated.
+That is valid: the files do not overlap.
 
 `manifest.json` tells what the files cover, so that the daily job and
 users can check the dataset without downloading data:
@@ -162,7 +165,7 @@ waiting for JMA.
 
 ### GitHub Actions
 
-`.github/workflows/month.yml` runs daily at 05:17 JST (after JMA's 01:00
+`.github/workflows/daily.yml` runs daily at 05:17 JST (after JMA's 01:00
 and 03:00 updates; not on the hour, when scheduled runs are delayed most).
 It pulls the image `JWD_IMAGE` (`:latest`, the latest release)
 and runs `scripts/jwd-daily.sh` in it:
@@ -206,9 +209,9 @@ Notes for a public repository:
   filling covers a few skipped days.
 - GitHub disables scheduled workflows of a public repository after 60 days
   without activity in the repository. Uploads to the Hub do not count.
-  `.github/workflows/keepalive.yml` enables `month.yml`, `monthly.yml` and
+  `.github/workflows/keepalive.yml` enables `daily.yml`, `monthly.yml` and
   itself again on the 1st and 15th of each month, which resets that
-  period (`gh workflow enable month.yml` re-enables one by hand).
+  period (`gh workflow enable daily.yml` re-enables one by hand).
 - `HF_TOKEN` is not available to pull requests from forks; the workflow
   has no pull request trigger.
 
@@ -223,28 +226,29 @@ Notes for a public repository:
 
 ## Monthly update
 
-`.github/workflows/monthly.yml` runs on the 2nd of each month at 06:17 JST
-(after the daily job of the 2nd; `workflow_dispatch` with `dry_run` prints
-the plan). It pulls the image `JWD_IMAGE` and runs `scripts/jwd-monthly.sh`
+`.github/workflows/monthly.yml` runs on the 1st of each month at 20:00 JST
+(the last month has just ended; far from the daily job at 05:17;
+`workflow_dispatch` with `dry_run` prints the plan). It pulls the image `JWD_IMAGE` and runs `scripts/jwd-monthly.sh`
 in it:
 
 1. `hf download` `manifest.json`, `stations/stations.parquet`,
    `homogeneity_breaks/homogeneity_breaks.parquet`, all month files and the
    year files of the years `jwd monthly` rewrites: from the year of the
-   month before last to the current year (on 12-02: 2026; on 01-02: 2026
-   and 2027).
+   month two months before the current one to the year of yesterday (on
+   12-01: 2026; on 01-01: 2026; on 02-01: 2026 and 2027).
 2. `jwd monthly -dataset <dir>`:
    1. load the stations, the homogeneity breaks and the year and month files
       of those years into a temporary state (about 30 s for 2026);
    2. `stations` (61 requests; `-skip-stations` to skip) and a probe of
       new stations;
-   3. refetch from the first day of the month before last to yesterday for
-      every active station, daily and hourly. On 12-02: 10-01..12-01, so
+   3. refetch from the first day of the month two months before the
+      current one to yesterday for every active station, daily and hourly. On 12-01: 10-01..11-30, so
       October and November are fetched again after they ended (and days
       the daily job could not fill are filled); rows that did not change
       keep their `updated_at`;
-   4. export: October goes into the year file of 2026; November and
-      December are month files; stations, homogeneity breaks, the card and
+   4. export: October goes into the year file of 2026; November is a
+      month file (December too when the run is repeated later in the
+      month and it has rows); stations, homogeneity breaks, the card and
       `manifest.json` are rewritten.
 3. `hf upload` the directory with `--delete "*/year=*/????-??.parquet"`,
    which removes the month file that went into a year file. Files of other
@@ -320,7 +324,7 @@ The `Dockerfile` builds an image with `jwd`, the `hf` CLI and `scripts/`
 (on `PATH`; `JWD_DATA_DIR=/data`, `JWD_EXPORT_DIR=/dataset`). A tag
 `vX.Y.Z` publishes it as `ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z`
 and moves `:latest` to it; both workflows run `:latest` (`JWD_IMAGE` in
-`month.yml` and `monthly.yml`). See
+`daily.yml` and `monthly.yml`). See
 [release.md](release.md) for the steps, image access and pinning.
 
 ## Latest values for users (planned)

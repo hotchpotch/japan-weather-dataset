@@ -52,11 +52,11 @@ upload() {
 }
 
 # The years jwd monthly reads (crawl.MonthlyYears): from the year of the
-# first day of the month two months before yesterday's month (JST) to
+# first day of the month two months before today's month (JST) to
 # yesterday's year.
-month=$(TZ=Asia/Tokyo date -d yesterday +%Y-%m-01)
+month=$(TZ=Asia/Tokyo date +%Y-%m-01)
 from_year=$(date -d "$month -2 months" +%Y)
-to_year=${month%%-*}
+to_year=$(TZ=Asia/Tokyo date -d yesterday +%Y)
 include=(--include manifest.json --include stations/stations.parquet
   --include homogeneity_breaks/homogeneity_breaks.parquet
   --include "daily/year=*/????-??.parquet" --include "hourly/year=*/????-??.parquet")

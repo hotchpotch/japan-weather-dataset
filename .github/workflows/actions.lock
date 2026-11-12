@@ -6,8 +6,8 @@ workflows:
     '.github/workflows/ci.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-go@v7.0.0'
+    '.github/workflows/daily.yml': []
     '.github/workflows/keepalive.yml': []
-    '.github/workflows/month.yml': []
     '.github/workflows/monthly.yml': []
     '.github/workflows/release.yml':
         - 'actions/checkout@v7.0.1'

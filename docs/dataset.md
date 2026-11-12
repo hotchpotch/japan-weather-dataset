@@ -99,11 +99,13 @@ manifest.json                       dates covered by the files
 README.md                           dataset card (YAML configs for the Hub)
 ```
 
-The recent months are the month of the latest date and the month before.
+The recent months are the month of the day after the latest date and the
+month before (on the 1st, after the monthly run, only the month that just
+ended has a month file).
 Their values are still being revised by JMA, and the current month is
 updated every day (by `jwd month`, which needs only the current month
-files; see [operations.md](operations.md)). When the latest date moves into
-a new month, `export` moves the oldest month file into its year file. A
+files; see [operations.md](operations.md)). When the latest date reaches
+the end of a month, `export` moves the oldest month file into its year file. A
 month is never in both a year file and a month file; `daily/*/*.parquet`
 reads as one table (the hive key `year` is the directory).
 

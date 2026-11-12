@@ -25,6 +25,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          for wf in month.yml monthly.yml keepalive.yml; do
+          for wf in daily.yml monthly.yml keepalive.yml; do
             gh workflow enable "$wf"
           done

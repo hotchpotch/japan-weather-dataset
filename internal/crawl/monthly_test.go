@@ -21,6 +21,12 @@ func TestMonthlyFrom(t *testing.T) {
 		{day(2027, 1, 1), day(2026, 11, 1)},
 		{day(2027, 2, 1), day(2026, 12, 1)},
 		{day(2026, 12, 15), day(2026, 10, 1)},
+		// The run on the 1st (yesterday the last day of a month).
+		{day(2026, 11, 30), day(2026, 10, 1)},
+		{day(2026, 12, 31), day(2026, 11, 1)},
+		{day(2027, 2, 28), day(2027, 1, 1)},  // 2027-03-01
+		{day(2028, 2, 28), day(2027, 12, 1)}, // 2028-02-29: still February
+		{day(2028, 2, 29), day(2028, 1, 1)},  // 2028-03-01
 	} {
 		if got := monthlyFrom(c.yesterday); !got.Equal(c.want) {
 			t.Errorf("monthlyFrom(%v) = %v, want %v", c.yesterday, got, c.want)
@@ -28,6 +34,9 @@ func TestMonthlyFrom(t *testing.T) {
 	}
 	if got := MonthlyYears(day(2027, 1, 1)); len(got) != 2 || got[0] != 2026 || got[1] != 2027 {
 		t.Errorf("MonthlyYears(2027-01-01) = %v", got)
+	}
+	if got := MonthlyYears(day(2026, 12, 31)); len(got) != 1 || got[0] != 2026 {
+		t.Errorf("MonthlyYears(2026-12-31) = %v", got)
 	}
 }
 
@@ -234,6 +243,78 @@ func TestMonthlyNewYear(t *testing.T) {
 	}
 	m, _ := export.ReadManifest(ds)
 	if m.Daily.YearFilesThrough != "2026-11-30" || m.Daily.LatestDate != "2027-01-01" {
+		t.Errorf("manifest = %+v", m.Daily)
+	}
+}
+
+// On the 1st at 20:00 (yesterday 11-30) the run refetches 10-01..11-30 and
+// leaves the same files as on 12-02 without December: October goes into
+// the year file, November stays the only month file.
+func TestMonthlyFirstOfMonth(t *testing.T) {
+	full := fullDataset(t, time.Date(2026, 11, 2, 6, 0, 0, 0, obsdl.JST))
+	ds := partialCopy(t, full, 2026)
+	r, err := runMonthly(t, ds, time.Date(2026, 12, 1, 20, 0, 0, 0, obsdl.JST))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(r.requests, " "); got != "2026-09-30..2026-11-30 a0001,a0002" {
+		t.Errorf("requests = %s", got)
+	}
+	if r.stats != (RunStats{Requests: 1, Rows: 61 * 2}) {
+		t.Errorf("stats = %+v", r.stats)
+	}
+	for rel, want := range map[string]bool{
+		"daily/year=2026/2026-10.parquet": false,
+		"daily/year=2026/2026-11.parquet": true,
+		"daily/year=2026/2026-12.parquet": false, // no rows yet
+	} {
+		if exists(ds, rel) != want {
+			t.Errorf("%s exists = %v, want %v", rel, !want, want)
+		}
+	}
+	if n := r.count(t, "daily/year=2026/data.parquet", "true"); n != 304*2 {
+		t.Errorf("year file rows = %d, want %d", n, 304*2)
+	}
+	if n := r.count(t, "daily/year=2026/2026-11.parquet", "precipitation_total = 2"); n != 30*2 {
+		t.Errorf("refetched November rows = %d, want %d", n, 30*2)
+	}
+	m, err := export.ReadManifest(ds)
+	if err != nil || m.Daily.YearFilesThrough != "2026-10-31" || m.Daily.LatestDate != "2026-11-30" || len(m.Daily.MonthFiles) != 1 {
+		t.Errorf("manifest = %+v (%v)", m.Daily, err)
+	}
+}
+
+// On 2028-03-01 (yesterday the leap day 02-29) the run refetches
+// 01-01..02-29: January goes into the year file of 2028, February with its
+// 29 days stays the month file.
+func TestMonthlyLeapDay(t *testing.T) {
+	full := fullDataset(t, time.Date(2028, 2, 2, 6, 0, 0, 0, obsdl.JST))
+	ds := partialCopy(t, full, 2028)
+	r, err := runMonthly(t, ds, time.Date(2028, 3, 1, 20, 0, 0, 0, obsdl.JST))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(r.requests, " "); got != "2027-12-31..2028-02-29 a0001,a0002" {
+		t.Errorf("requests = %s", got)
+	}
+	for rel, want := range map[string]bool{
+		"daily/year=2028/data.parquet":    true,
+		"daily/year=2028/2028-01.parquet": false,
+		"daily/year=2028/2028-02.parquet": true,
+		"daily/year=2028/2028-03.parquet": false,
+	} {
+		if exists(ds, rel) != want {
+			t.Errorf("%s exists = %v, want %v", rel, !want, want)
+		}
+	}
+	if n := r.count(t, "daily/year=2028/data.parquet", "true"); n != 31*2 {
+		t.Errorf("2028 year file rows = %d, want %d", n, 31*2)
+	}
+	if n := r.count(t, "daily/year=2028/2028-02.parquet", "precipitation_total = 2"); n != 29*2 {
+		t.Errorf("February rows = %d, want %d", n, 29*2)
+	}
+	m, _ := export.ReadManifest(ds)
+	if m.Daily.YearFilesThrough != "2028-01-31" || m.Daily.LatestDate != "2028-02-29" || len(m.Daily.MonthFiles) != 1 {
 		t.Errorf("manifest = %+v", m.Daily)
 	}
 }

@@ -8,8 +8,8 @@
 //	manifest.json  (dates covered by the files; see WriteManifest)
 //	README.md      (Hugging Face dataset card)
 //
-// The recent months are the month of the latest date and the month before
-// (see RecentMonths). Their values may still be revised by JMA, and the
+// The recent months are the month of the day after the latest date and the
+// month before (see RecentMonths). Their values may still be revised by JMA, and the
 // month of the latest date is updated every day, possibly by the month
 // command, which does not need the crawl state.
 package export
@@ -90,11 +90,15 @@ ORDER BY station_id, frequency, element, date, hour) TO %s (FORMAT parquet, COMP
 	return WriteManifest(ctx, db, e.Out, time.Now(), nil)
 }
 
-// RecentMonths returns the month before the month of latest and that month
-// (first days). Their rows are written to month files; older rows to year
-// files.
+// RecentMonths returns the month of the day after latest and the month
+// before (first days). Their rows are written to month files; older rows to
+// year files. Counting from the next day makes an export on the 1st (latest
+// the last day of the month before) the same as one later in the month: on
+// 12-01 and on 12-02 October goes into its year file. A month without rows
+// gets no file (writeRows).
 func RecentMonths(latest time.Time) []time.Time {
-	cur := time.Date(latest.Year(), latest.Month(), 1, 0, 0, 0, 0, time.UTC)
+	next := latest.AddDate(0, 0, 1)
+	cur := time.Date(next.Year(), next.Month(), 1, 0, 0, 0, 0, time.UTC)
 	return []time.Time{cur.AddDate(0, -1, 0), cur}
 }
 

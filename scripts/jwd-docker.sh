@@ -3,7 +3,7 @@
 # the dataset (or work) directory mounted (docs/operations.md):
 #
 #   scripts/jwd-docker.sh jwd-monthly.sh          # what monthly.yml runs
-#   scripts/jwd-docker.sh jwd-daily.sh            # what month.yml runs
+#   scripts/jwd-docker.sh jwd-daily.sh            # what daily.yml runs
 #   scripts/jwd-docker.sh jwd status
 #
 # Settings from the environment or .env in the repository root: JWD_IMAGE

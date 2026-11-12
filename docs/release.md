@@ -4,7 +4,7 @@ A release is a tag `vX.Y.Z`. `.github/workflows/release.yml` then runs the
 tests, builds the image `ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z`,
 pushes it with the workflow's short-lived `GITHUB_TOKEN` and creates a
 GitHub Release whose notes come from `docs/releases/`. It also moves the
-image tag `latest` to the new version. The update workflows (`month.yml`,
+image tag `latest` to the new version. The update workflows (`daily.yml`,
 `monthly.yml`) run `:latest` (`JWD_IMAGE`), so a release takes effect with
 their next run. A published version is never replaced, and a version tag is
 never moved or reused; only `latest` moves.

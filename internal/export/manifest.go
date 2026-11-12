@@ -117,9 +117,10 @@ func keepAbsent(out string, prev, cur *FrequencyManifest) *FrequencyManifest {
 		latestMonth = max(latestMonth, mm.Month)
 	}
 	// At most the two months before the latest one can still be month
-	// files (three month files exist between the first daily run of a
-	// month and the monthly run). Older entries are stale, e.g. from a
-	// manifest downloaded before a monthly run merged that month.
+	// files (three month files exist when the daily runs of a new month
+	// start before the monthly run, e.g. after it failed). Older entries
+	// are stale, e.g. from a manifest downloaded before a monthly run
+	// merged that month.
 	oldest := ""
 	if t, err := time.Parse("2006-01", latestMonth); err == nil {
 		oldest = t.AddDate(0, -2, 0).Format("2006-01")

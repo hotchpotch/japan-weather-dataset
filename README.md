@@ -101,8 +101,8 @@ errors, persistent rate limiting or the own quota, and stops on a block or
 maintenance. `backfill -dry-run` prints the plan, `-max-jobs N` limits a run,
 `-stations` and `-from-year` / `-to-year` narrow it.
 
-The updates run on GitHub Actions (`.github/workflows/month.yml` daily,
-`monthly.yml` on the 2nd of each month) from a released image
+The updates run on GitHub Actions (`.github/workflows/daily.yml` daily,
+`monthly.yml` on the 1st of each month at 20:00 JST) from a released image
 (`ghcr.io/hotchpotch/japan-weather-dataset:vX.Y.Z`, built by
 `.github/workflows/release.yml` for a tag; see
 [docs/release.md](docs/release.md)). Neither needs the crawl state: they

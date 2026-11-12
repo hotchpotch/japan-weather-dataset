@@ -166,3 +166,22 @@ func TestCardCredit(t *testing.T) {
 		}
 	}
 }
+
+// The recent months count from the day after latest: an export on the 1st
+// (latest the end of a month) already moves the month before last into its
+// year file.
+func TestRecentMonths(t *testing.T) {
+	for _, c := range []struct{ latest, prev, cur time.Time }{
+		{date(2026, 11, 5), date(2026, 10, 1), date(2026, 11, 1)},
+		{date(2026, 11, 30), date(2026, 11, 1), date(2026, 12, 1)},
+		{date(2026, 12, 31), date(2026, 12, 1), date(2027, 1, 1)},
+		{date(2027, 2, 28), date(2027, 2, 1), date(2027, 3, 1)},
+		{date(2028, 2, 28), date(2028, 1, 1), date(2028, 2, 1)}, // leap year
+		{date(2028, 2, 29), date(2028, 2, 1), date(2028, 3, 1)},
+	} {
+		got := RecentMonths(c.latest)
+		if len(got) != 2 || !got[0].Equal(c.prev) || !got[1].Equal(c.cur) {
+			t.Errorf("RecentMonths(%s) = %v", c.latest.Format(time.DateOnly), got)
+		}
+	}
+}
