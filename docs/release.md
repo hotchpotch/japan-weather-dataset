@@ -58,7 +58,7 @@ on pull requests.
    (`docker run --rm ghcr.io/hotchpotch/japan-weather-dataset:latest jwd version`,
    or the package page). The workflows use it from their next run.
 6. Run the workflows by hand and check the uploads:
-   `gh workflow run month`, and `gh workflow run monthly -f dry_run=true`
+   `gh workflow run daily`, and `gh workflow run monthly -f dry_run=true`
    (a real monthly run refetches about two months; run it only when that
    is intended).
 
