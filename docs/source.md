@@ -129,6 +129,27 @@ numbers (see `homogeneity_breaks`).
   include data restored a week later after a network outage (2026-09-28)
   and corrections of periods several years back.
 
+### Gaps in the source
+
+Settled years also have hours or days without a value: JMA marks them
+missing (品質情報 1), or marks the daily value insufficient (4) when some of
+its hours are missing. These gaps are in obsdl itself, not losses of `jwd`;
+a direct request returns the same empty values and flags, and
+`correctHistory.json` gives no reason for them. Examples of sunshine
+duration, checked against obsdl on 2026-11-13 (hours as in the CSV, the end
+of the hour):
+
+| station | missing hours | daily values |
+|---|---|---|
+| 東京 s47662 | 2023-09-09 2:00 to 2023-09-11 14:00 (61 hours in a row) | 9th and 10th missing (1), 11th insufficient (4) |
+| 横浜 s47670 | 2007-09-04 6:00–19:00 (the whole daytime); a few hours on the 2nd, 3rd, 8th, 9th and 11th | 6 days insufficient (4) |
+| 宇都宮 s47615 | 2005-09-18 16:00–18:00, 09-19 6:00–9:00, single hours on the 25th, 28th and 30th | 5 days insufficient (4) |
+
+A monthly total of such a station falls below a completeness rule (for
+example 28 of 30 days with quality 5 or 8) although most of the month was
+observed. Report the excluded station-months, and check whether including
+quality-4 values changes the result.
+
 ## Terms
 
 Content of the JMA website is available under the 公共データ利用規約（第1.0版）

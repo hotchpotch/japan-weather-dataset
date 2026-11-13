@@ -16,6 +16,12 @@ wrong results come from the points below, not from the statistics.
   with (nearly) all days. Rules that worked: a month with ≥ 80 % of its days;
   a year with ≥ 330 days (or 12 valid months); a winter with ≥ 110 of the
   121 Dec–Mar days. State the rule in the result.
+- **Gaps in the source:** even settled years have hours or days that JMA
+  marks missing (1) or insufficient (4), e.g. Tokyo sunshine
+  2023-09-09..11 (61 hours missing). They are missing at JMA too, not in the
+  copy only; do not try to fetch them again. Say which station-months a rule
+  excluded and whether counting quality 4 changes the result. Examples:
+  [docs/source.md](https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/source.md#gaps-in-the-source).
 - **Same stations:** the network changes (AMeDAS starts in 1976, stations
   open and close, `ended_on`). Comparing periods with a changing set mixes
   climate change with network change. Choose stations that are complete in
