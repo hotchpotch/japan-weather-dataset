@@ -96,6 +96,7 @@ settings and the login is not needed any more.
   `gh extension install github/gh-actions-lock --pin v0.4.0`.
 - Base images in the `Dockerfile` are pinned by digest; the `hf` CLI by
   version and date (`uv tool install --exclude-newer`, also in the scripts
-  and README). Dependabot opens pull requests for security updates of the
-  actions and Go modules only; refresh the base images and the `hf` CLI by
-  hand, in a release.
+  and README). Dependabot opens one pull request a month for version
+  updates of the actions (after a 7-day cooldown, with the lockfile
+  regenerated) and pull requests for security updates of the Go modules
+  only; refresh the base images and the `hf` CLI by hand, in a release.
