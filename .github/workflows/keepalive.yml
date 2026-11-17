@@ -21,10 +21,18 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Enable the scheduled workflows
+        # Only workflows that are active or that GitHub disabled for
+        # inactivity: a workflow disabled by hand (or by the block step of
+        # daily.yml / monthly.yml) stays disabled until the maintainer
+        # enables it.
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           for wf in daily.yml monthly.yml keepalive.yml; do
-            gh workflow enable "$wf"
+            state=$(gh api "repos/$GH_REPO/actions/workflows/$wf" --jq .state)
+            case "$state" in
+              active | disabled_inactivity) gh workflow enable "$wf" ;;
+              *) echo "::warning::$wf is $state; not enabled" ;;
+            esac
           done

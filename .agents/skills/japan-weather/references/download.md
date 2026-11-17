@@ -8,6 +8,9 @@ Dataset: <https://huggingface.co/datasets/hotchpotch/japan-weather>
 - `hf` CLI (from `huggingface_hub`). Without installing:
   `uvx --from huggingface_hub hf ...` (tested with 2.4.0). Or
   `pip install -U huggingface_hub`.
+- `scripts/sync.sh` needs bash and `python3` or [uv](https://docs.astral.sh/uv/)
+  (it reads `manifest.json` with Python; with uv alone, both `hf` and Python
+  come from uv).
 - DuckDB for queries: the `duckdb` CLI, or Python `duckdb`
   (`uvx --with duckdb python ...`). Polars and pandas (`pyarrow`) read the same files.
 
@@ -92,7 +95,8 @@ it loads whole configs; prefer `hf download` with includes.
 
 ## Values newer than the Hub
 
-The Hub copy is updated once a day, up to yesterday (the job starts at
-05:17 JST and takes about 10 minutes; GitHub can delay it). For
+The Hub copy is updated once a day, up to yesterday (the job is scheduled
+at 05:17 JST, but GitHub often starts it hours later; check `latest_date` in
+`manifest.json` instead of assuming a time). For
 the newest days, or a copy that you update yourself, see
 [docs/local-copy.md](https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/local-copy.md).

@@ -123,28 +123,35 @@ TO %s (FORMAT parquet, COMPRESSION zstd)`, table, sqlString(p.station), p.year, 
 	return total, nil
 }
 
-// Dates returns the dates in [from, to] that have at least one stored row.
-func (s *Store) Dates(ctx context.Context, f obsdl.Frequency, from, to time.Time) (map[time.Time]bool, error) {
+// chunkList returns the chunk files of the years from..to as a DuckDB list
+// literal, or "" when there are none.
+func (s *Store) chunkList(f obsdl.Frequency, from, to time.Time) (string, error) {
 	var files []string
 	for y := from.Year(); y <= to.Year(); y++ {
 		m, err := filepath.Glob(filepath.Join(s.Dir, "chunks", string(f), fmt.Sprint(y), "*.parquet"))
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		files = append(files, m...)
 	}
-	out := map[time.Time]bool{}
 	if len(files) == 0 {
-		return out, nil
+		return "", nil
 	}
-	list := ""
+	quoted := make([]string, len(files))
 	for i, p := range files {
-		if i > 0 {
-			list += ", "
-		}
-		list += sqlString(p)
+		quoted[i] = sqlString(p)
 	}
-	rows, err := s.DB.QueryContext(ctx, fmt.Sprintf(`SELECT DISTINCT date FROM read_parquet([%s], hive_partitioning = false)
+	return "[" + strings.Join(quoted, ", ") + "]", nil
+}
+
+// Dates returns the dates in [from, to] that have at least one stored row.
+func (s *Store) Dates(ctx context.Context, f obsdl.Frequency, from, to time.Time) (map[time.Time]bool, error) {
+	out := map[time.Time]bool{}
+	list, err := s.chunkList(f, from, to)
+	if err != nil || list == "" {
+		return out, err
+	}
+	rows, err := s.DB.QueryContext(ctx, fmt.Sprintf(`SELECT DISTINCT date FROM read_parquet(%s, hive_partitioning = false)
 WHERE date BETWEEN ? AND ?`, list), from, to)
 	if err != nil {
 		return nil, err
@@ -156,6 +163,38 @@ WHERE date BETWEEN ? AND ?`, list), from, to)
 			return nil, err
 		}
 		out[d.UTC()] = true
+	}
+	return out, rows.Err()
+}
+
+// StationMonth identifies the rows of one station in one month (first day).
+type StationMonth struct {
+	Station string
+	Month   time.Time
+}
+
+// MonthRows returns the number of stored rows per station and month for the
+// dates in [from, to].
+func (s *Store) MonthRows(ctx context.Context, f obsdl.Frequency, from, to time.Time) (map[StationMonth]int, error) {
+	out := map[StationMonth]int{}
+	list, err := s.chunkList(f, from, to)
+	if err != nil || list == "" {
+		return out, err
+	}
+	rows, err := s.DB.QueryContext(ctx, fmt.Sprintf(`SELECT station_id, CAST(date_trunc('month', date) AS DATE), count(*)
+FROM read_parquet(%s, hive_partitioning = false) WHERE date BETWEEN ? AND ? GROUP BY ALL`, list), from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var k StationMonth
+		var n int
+		if err := rows.Scan(&k.Station, &k.Month, &n); err != nil {
+			return nil, err
+		}
+		k.Month = k.Month.UTC()
+		out[k] = n
 	}
 	return out, rows.Err()
 }

@@ -519,8 +519,8 @@ func pageMessage(body []byte) string {
 		s = s[:i]
 	}
 	s = strings.TrimSpace(s)
-	if len(s) > 300 {
-		s = s[:300]
+	if r := []rune(s); len(r) > 300 {
+		s = string(r[:300]) // whole characters: the message is Japanese
 	}
 	return s
 }

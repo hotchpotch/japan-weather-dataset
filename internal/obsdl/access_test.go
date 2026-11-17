@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"golang.org/x/text/encoding/japanese"
 )
@@ -223,4 +224,11 @@ func TestIntervalSettlesAboveServerLimit(t *testing.T) {
 		t.Errorf("interval %v settled below the server limit %v", c.Interval(), limit)
 	}
 	t.Logf("hits at %v, final interval %v", hits, c.Interval())
+}
+
+func TestPageMessageCutsWholeCharacters(t *testing.T) {
+	msg := pageMessage([]byte("<body>" + strings.Repeat("あ", 400) + "</body>"))
+	if !utf8.ValidString(msg) || utf8.RuneCountInString(msg) != 300 {
+		t.Errorf("message has %d characters, valid UTF-8 %v", utf8.RuneCountInString(msg), utf8.ValidString(msg))
+	}
 }

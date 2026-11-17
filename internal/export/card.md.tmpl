@@ -33,9 +33,7 @@ AMeDAS network, converted to Parquet and updated every day.
 
 - Source: JMA 「過去の気象データ・ダウンロード」 <https://www.data.jma.go.jp/risk/obsdl/>
 - Stations: {{.Stations}} (including stations that no longer observe)
-- Daily values: {{.DailyYears}} / hourly values: {{.HourlyYears}}
-- Latest day: {{.LatestDate}} (JST). Values of recent days are preliminary and may be revised by JMA.
-- Generated: {{.GeneratedAt}}
+- Daily values from {{.DailyFrom}} and hourly values from {{.HourlyFrom}} up to a day or two ago (JST); `latest_date` in `manifest.json` gives the last day. Values of recent days are preliminary and may be revised by JMA.
 - Built with <https://github.com/hotchpotch/japan-weather-dataset>
 - Local copies, freshness and updating them yourself: <https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/local-copy.md>
 - Agent skill (Claude Code, Codex) with SQL recipes and pitfalls: <https://github.com/hotchpotch/japan-weather-dataset/tree/main/.agents/skills/japan-weather>
@@ -75,14 +73,14 @@ ORDER BY date;
 
 ```python
 from datasets import load_dataset
-daily = load_dataset("<repo>", "daily", split="train")
+daily = load_dataset("hotchpotch/japan-weather", "daily", split="train")
 ```
 
 ```sql
 -- DuckDB, reading from the Hub
 SELECT s.name, d.date, d.precipitation_total
-FROM 'hf://datasets/<repo>/daily/year=2019/data.parquet' d
-JOIN 'hf://datasets/<repo>/stations/stations.parquet' s USING (station_id)
+FROM 'hf://datasets/hotchpotch/japan-weather/daily/year=2019/data.parquet' d
+JOIN 'hf://datasets/hotchpotch/japan-weather/stations/stations.parquet' s USING (station_id)
 WHERE d.date = '2019-10-12'
 ORDER BY d.precipitation_total DESC NULLS LAST
 LIMIT 10;
@@ -134,7 +132,7 @@ rows up to the month before the recent months; the recent months (the month
 of the day after the latest day and the month before) are in
 `daily/year=YYYY/YYYY-MM.parquet` and `hourly/year=YYYY/YYYY-MM.parquet`.
 The current month is updated every day; when a month ends, the monthly
-update (the 1st, 20:00 JST) merges the oldest month file into its year file. Read `daily/*/*.parquet` to get all
+update on the 1st merges the oldest month file into its year file. Read `daily/*/*.parquet` to get all
 rows. `manifest.json` lists the latest date and the month files with their
 missing days.
 
