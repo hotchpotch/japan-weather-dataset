@@ -138,7 +138,8 @@ default 100000, max 200000; larger requests time out), `-max-stations`, `-max-re
 
 Exit codes: 0 ok, 1 error, 3 rate limited, 4 access blocked, 5 maintenance,
 6 request quota reached, 7 days missing from the month file beyond
-`month -max-gap-days`, 130 interrupted.
+`month -max-gap-days`, 8 the monthly refetch removed many rows of an ended
+month (nothing written; `monthly -allow-row-loss`), 130 interrupted.
 
 ## Data license
 

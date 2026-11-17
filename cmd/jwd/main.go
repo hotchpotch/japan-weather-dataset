@@ -119,6 +119,7 @@ const (
 	exitMaintenance = 5 // the service is under maintenance
 	exitQuota       = 6 // the self-imposed request limit was reached
 	exitMissingDays = 7 // month: days are missing beyond -max-gap-days
+	exitRowLoss     = 8 // monthly: the refetch removed many rows of an ended month
 )
 
 func exitCode(err error) int {
@@ -133,6 +134,8 @@ func exitCode(err error) int {
 		return exitQuota
 	case errors.Is(err, crawl.ErrMissingDays):
 		return exitMissingDays
+	case errors.Is(err, crawl.ErrRowLoss):
+		return exitRowLoss
 	}
 	return 1
 }
@@ -306,9 +309,10 @@ func runCommand(ctx context.Context, g global, log *slog.Logger, cmd string, arg
 	case "monthly":
 		dataset = fs.String("dataset", env("JWD_EXPORT_DIR", "dataset"), "dataset directory with stations, homogeneity breaks, manifest.json, the month files and the year files of the recent years (env JWD_EXPORT_DIR)")
 		skipStations := fs.Bool("skip-stations", false, "do not download the station list")
+		allowRowLoss := fs.Bool("allow-row-loss", false, "export even when the refetch removed many rows of an ended month")
 		dryRun = fs.Bool("dry-run", false, "print the plan without requesting or writing")
 		fs.Parse(args)
-		return c.Monthly(ctx, crawl.MonthlyOptions{Dataset: *dataset, SkipStations: *skipStations, DryRun: *dryRun})
+		return c.Monthly(ctx, crawl.MonthlyOptions{Dataset: *dataset, SkipStations: *skipStations, AllowRowLoss: *allowRowLoss, DryRun: *dryRun})
 
 	case "export":
 		out := fs.String("out", env("JWD_EXPORT_DIR", "dataset"), "output directory (env JWD_EXPORT_DIR)")

@@ -341,13 +341,11 @@ ORDER BY s.station_id) TO %s (FORMAT parquet, COMPRESSION zstd)`, q(path))
 type cardColumn struct{ Name, Type, Description string }
 
 type cardData struct {
-	GeneratedAt   string
-	LatestDate    string
 	Stations      int
 	DailyColumns  []cardColumn
 	HourlyColumns []cardColumn
-	DailyYears    string
-	HourlyYears   string
+	DailyFrom     string
+	HourlyFrom    string
 }
 
 func columns(f obsdl.Frequency) []cardColumn {
@@ -358,31 +356,29 @@ func columns(f obsdl.Frequency) []cardColumn {
 	return append(out, cardColumn{"updated_at", "TIMESTAMPTZ", store.UpdatedAtDescription})
 }
 
-// yearSpan is the range of years with data: from the chunks and from the
+// firstYear is the first year with data: from the chunks and from the
 // probed coverage of the stations, so that a partial state (the monthly
-// command loads only the recent years) still gives the whole range.
-func (e *Exporter) yearSpan(ctx context.Context, f obsdl.Frequency) string {
-	var lo, hi *int
-	err := e.Store.DB.QueryRowContext(ctx, `SELECT min(y0), max(y1) FROM (
-	SELECT year AS y0, year AS y1 FROM chunks WHERE frequency = $1 AND rows > 0
+// command loads only the recent years) still gives it. The card names no
+// last year or day, which would be stale between the runs that rewrite it;
+// manifest.json has them.
+func (e *Exporter) firstYear(ctx context.Context, f obsdl.Frequency) string {
+	var lo *int
+	err := e.Store.DB.QueryRowContext(ctx, `SELECT min(y) FROM (
+	SELECT year AS y FROM chunks WHERE frequency = $1 AND rows > 0
 	UNION ALL
-	SELECT first_year, last_year FROM coverage WHERE frequency = $1 AND first_year > 0)`, string(f)).Scan(&lo, &hi)
+	SELECT first_year FROM coverage WHERE frequency = $1 AND first_year > 0)`, string(f)).Scan(&lo)
 	if err != nil || lo == nil {
 		return "-"
 	}
-	return fmt.Sprintf("%d-%d", *lo, *hi)
+	return fmt.Sprintf("%d", *lo)
 }
 
 func (e *Exporter) writeCard(ctx context.Context) error {
 	d := cardData{
-		GeneratedAt:   time.Now().In(obsdl.JST).Format(time.RFC3339),
 		DailyColumns:  columns(obsdl.Daily),
 		HourlyColumns: columns(obsdl.Hourly),
-		DailyYears:    e.yearSpan(ctx, obsdl.Daily),
-		HourlyYears:   e.yearSpan(ctx, obsdl.Hourly),
-	}
-	if t, ok, err := e.Store.LastChunkDate(ctx, obsdl.Daily); err == nil && ok {
-		d.LatestDate = t.Format(time.DateOnly)
+		DailyFrom:     e.firstYear(ctx, obsdl.Daily),
+		HourlyFrom:    e.firstYear(ctx, obsdl.Hourly),
 	}
 	if err := e.Store.DB.QueryRowContext(ctx, `SELECT count(*) FROM stations`).Scan(&d.Stations); err != nil {
 		return err

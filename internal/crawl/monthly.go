@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/hotchpotch/japan-weather-dataset/internal/export"
 	"github.com/hotchpotch/japan-weather-dataset/internal/obsdl"
+	"github.com/hotchpotch/japan-weather-dataset/internal/store"
 )
 
 // MonthlyOptions configures Monthly.
@@ -22,7 +25,42 @@ type MonthlyOptions struct {
 	// SkipStations skips downloading the station list (stations without
 	// coverage are still probed).
 	SkipStations bool
+	// AllowRowLoss exports even when the refetch removed many rows of an
+	// ended month (see checkRowLoss), e.g. after JMA really withdrew data.
+	AllowRowLoss bool
 	DryRun       bool
+}
+
+// ErrRowLoss means the refetch removed many rows of a month that the export
+// would settle; nothing is written.
+var ErrRowLoss = errors.New("the refetch removed rows of ended months")
+
+// A station-month counts as lost when the refetch removed at least these
+// rows (two days) and more than a tenth of them. Smaller changes are
+// ordinary revisions (e.g. a missing latest day of one station).
+const lossFraction = 0.1
+
+func minLoss(f obsdl.Frequency) int {
+	if f == obsdl.Hourly {
+		return 48
+	}
+	return 2
+}
+
+// checkRowLoss compares the rows per station and month before and after
+// the refetch. The refetch replaces the stored rows of its range, so an
+// incomplete answer from the source would remove rows; the export would
+// then settle the month in its year file, which is not fetched again.
+func checkRowLoss(f obsdl.Frequency, before, after map[store.StationMonth]int) []string {
+	var lost []string
+	for k, n := range before {
+		m := after[k]
+		if d := n - m; d >= minLoss(f) && float64(d) > lossFraction*float64(n) {
+			lost = append(lost, fmt.Sprintf("%s %s %s: %d -> %d rows", f, k.Station, k.Month.Format("2006-01"), n, m))
+		}
+	}
+	sort.Strings(lost)
+	return lost
 }
 
 // monthlyFrom is the first day refetched by the monthly run: the first day
@@ -56,7 +94,9 @@ func MonthlyYears(yesterday time.Time) []int {
 //     stations: the month before last and the last month, after they
 //     ended, plus the current month (rows that did not change keep their
 //     updated_at);
-//  4. export into o.Dataset: the oldest month file goes into its year
+//  4. stop with ErrRowLoss when the refetch removed many rows of an ended
+//     month (checkRowLoss), unless o.AllowRowLoss;
+//  5. export into o.Dataset: the oldest month file goes into its year
 //     file; stations, homogeneity breaks, the dataset card and
 //     manifest.json are rewritten.
 //
@@ -67,6 +107,17 @@ func (c *Crawler) Monthly(ctx context.Context, o MonthlyOptions) error {
 	from := monthlyFrom(yesterday)
 	if err := c.loadDataset(ctx, o.Dataset, from, yesterday); err != nil {
 		return err
+	}
+	// The ended months (before the month of today) are checked for lost rows.
+	today := yesterday.AddDate(0, 0, 1)
+	ended := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
+	before := map[obsdl.Frequency]map[store.StationMonth]int{}
+	for _, f := range []obsdl.Frequency{obsdl.Daily, obsdl.Hourly} {
+		n, err := c.Store.MonthRows(ctx, f, from, ended)
+		if err != nil {
+			return err
+		}
+		before[f] = n
 	}
 	if !o.SkipStations && !o.DryRun {
 		if _, err := c.RefreshStations(ctx); err != nil {
@@ -106,6 +157,21 @@ func (c *Crawler) Monthly(ctx context.Context, o MonthlyOptions) error {
 	}
 	if err := c.runJobs(ctx, jobs); err != nil {
 		return err
+	}
+	var lost []string
+	for _, f := range []obsdl.Frequency{obsdl.Daily, obsdl.Hourly} {
+		after, err := c.Store.MonthRows(ctx, f, from, ended)
+		if err != nil {
+			return err
+		}
+		lost = append(lost, checkRowLoss(f, before[f], after)...)
+	}
+	if len(lost) > 0 {
+		if !o.AllowRowLoss {
+			return fmt.Errorf("%w (%d station-months; nothing exported; check the source, then rerun, or pass -allow-row-loss): %s",
+				ErrRowLoss, len(lost), strings.Join(lost, ", "))
+		}
+		c.Log.Warn("refetch removed rows of ended months", "station_months", len(lost), "lost", lost)
 	}
 	return (&export.Exporter{Store: c.Store, Out: o.Dataset, Log: c.Log}).Run(ctx)
 }

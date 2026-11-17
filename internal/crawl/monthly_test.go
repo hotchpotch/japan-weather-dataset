@@ -2,6 +2,7 @@ package crawl
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -129,6 +130,15 @@ type monthlyRun struct {
 
 func runMonthly(t *testing.T, dataset string, at time.Time) (*monthlyRun, error) {
 	t.Helper()
+	return runMonthlyWith(t, dataset, at, MonthlyOptions{}, func(req obsdl.TableRequest) *obsdl.Table {
+		return fakeTable(req, func(time.Time) string { return "2" })
+	})
+}
+
+// runMonthlyWith runs Monthly on dataset with o (Dataset and SkipStations
+// are set) and the source answering with table.
+func runMonthlyWith(t *testing.T, dataset string, at time.Time, o MonthlyOptions, table func(obsdl.TableRequest) *obsdl.Table) (*monthlyRun, error) {
+	t.Helper()
 	s, err := store.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -139,9 +149,10 @@ func runMonthly(t *testing.T, dataset string, at time.Time) (*monthlyRun, error)
 		Now: func() time.Time { return at }}
 	c.fetchFunc = func(_ context.Context, _ string, req obsdl.TableRequest) (*obsdl.Table, int64, error) {
 		r.requests = append(r.requests, req.From.Format(time.DateOnly)+".."+req.To.Format(time.DateOnly)+" "+strings.Join(req.Stations, ","))
-		return fakeTable(req, func(time.Time) string { return "2" }), int64(len(r.requests)), nil
+		return table(req), int64(len(r.requests)), nil
 	}
-	err = c.Monthly(context.Background(), MonthlyOptions{Dataset: dataset, SkipStations: true})
+	o.Dataset, o.SkipStations = dataset, true
+	err = c.Monthly(context.Background(), o)
 	r.stats = c.Stats()
 	return r, err
 }
@@ -211,8 +222,11 @@ func TestMonthly(t *testing.T) {
 		t.Errorf("manifest = %+v (%v)", m.Daily, err)
 	}
 	card, _ := os.ReadFile(filepath.Join(ds, "README.md"))
-	if !strings.Contains(string(card), "2025-2026") {
-		t.Errorf("card does not show the whole year range 2025-2026")
+	if !strings.Contains(string(card), "Daily values from 2025 ") {
+		t.Errorf("card does not show the first year 2025 of the whole range")
+	}
+	if strings.Contains(string(card), "2026-12-01") {
+		t.Errorf("card names the latest day, which goes stale between the runs that rewrite it")
 	}
 }
 
@@ -330,5 +344,85 @@ func TestMonthlyMissingYearFile(t *testing.T) {
 	}
 	if len(r.requests) > 0 || !exists(ds, "daily/year=2026/2026-10.parquet") {
 		t.Errorf("requests %v sent or files changed", r.requests)
+	}
+}
+
+func TestCheckRowLoss(t *testing.T) {
+	oct := day(2026, 10, 1)
+	k := func(st string) store.StationMonth { return store.StationMonth{Station: st, Month: oct} }
+	before := map[store.StationMonth]int{k("a"): 31 * 24, k("b"): 31 * 24, k("c"): 31 * 24, k("d"): 31 * 24}
+	after := map[store.StationMonth]int{
+		k("a"): 31 * 24, // unchanged
+		k("b"): 30 * 24, // one day less: an ordinary revision
+		k("c"): 15 * 24, // half of the month lost
+		k("e"): 31 * 24, // new station
+	} // d: all rows lost
+	got := checkRowLoss(obsdl.Hourly, before, after)
+	want := []string{"hourly c 2026-10: 744 -> 360 rows", "hourly d 2026-10: 744 -> 0 rows"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("checkRowLoss = %q, want %q", got, want)
+	}
+	// Two daily rows of a short month are a loss; one is not.
+	if got := checkRowLoss(obsdl.Daily, map[store.StationMonth]int{k("a"): 10}, map[store.StationMonth]int{k("a"): 9}); len(got) != 0 {
+		t.Errorf("one daily row reported: %q", got)
+	}
+	if got := checkRowLoss(obsdl.Daily, map[store.StationMonth]int{k("a"): 10}, map[store.StationMonth]int{k("a"): 8}); len(got) != 1 {
+		t.Errorf("two of ten daily rows not reported: %q", got)
+	}
+}
+
+// When the source answers without the second half of October, the monthly
+// run on 12-02 stops before the export: October stays a month file with
+// all its rows instead of being settled in the year file without them.
+func TestMonthlyRowLoss(t *testing.T) {
+	full := fullDataset(t, time.Date(2026, 11, 2, 6, 0, 0, 0, obsdl.JST))
+	truncated := func(req obsdl.TableRequest) *obsdl.Table {
+		tab := fakeTable(req, func(time.Time) string { return "2" })
+		var stamps []obsdl.Stamp
+		keep := make([]bool, len(tab.Stamps))
+		for i, st := range tab.Stamps {
+			if st.Date.Before(day(2026, 10, 16)) || !st.Date.Before(day(2026, 11, 1)) {
+				keep[i] = true
+				stamps = append(stamps, st)
+			}
+		}
+		for s := range tab.Cells {
+			var rows [][]obsdl.Cell
+			for i, row := range tab.Cells[s] {
+				if keep[i] {
+					rows = append(rows, row)
+				}
+			}
+			tab.Cells[s] = rows
+		}
+		tab.Stamps = stamps
+		return tab
+	}
+	at := time.Date(2026, 12, 2, 6, 0, 0, 0, obsdl.JST)
+
+	ds := partialCopy(t, full, 2026)
+	manifest, _ := os.ReadFile(filepath.Join(ds, "manifest.json"))
+	_, err := runMonthlyWith(t, ds, at, MonthlyOptions{}, truncated)
+	if !errors.Is(err, ErrRowLoss) || !strings.Contains(err.Error(), "daily a0001 2026-10: 31 -> 15 rows") {
+		t.Fatalf("err = %v, want ErrRowLoss for October", err)
+	}
+	r := &monthlyRun{dataset: ds}
+	if !exists(ds, "daily/year=2026/2026-10.parquet") || r.count(t, "daily/year=2026/2026-10.parquet", "true") != 31*2 {
+		t.Errorf("the October month file changed")
+	}
+	if after, _ := os.ReadFile(filepath.Join(ds, "manifest.json")); string(after) != string(manifest) {
+		t.Errorf("manifest.json changed")
+	}
+
+	ds = partialCopy(t, full, 2026)
+	if _, err := runMonthlyWith(t, ds, at, MonthlyOptions{AllowRowLoss: true}, truncated); err != nil {
+		t.Fatalf("with AllowRowLoss: %v", err)
+	}
+	r = &monthlyRun{dataset: ds}
+	if exists(ds, "daily/year=2026/2026-10.parquet") {
+		t.Errorf("with AllowRowLoss October is still a month file")
+	}
+	if n := r.count(t, "daily/year=2026/data.parquet", "date >= DATE '2026-10-01'"); n != 15*2 {
+		t.Errorf("with AllowRowLoss October has %d rows in the year file, want %d", n, 15*2)
 	}
 }

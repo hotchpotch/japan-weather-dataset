@@ -10,7 +10,7 @@ or for a dataset of your own.
 
 | part | updated | by |
 |---|---|---|
-| current month files (`*/year=YYYY/YYYY-MM.parquet`) | every day, up to yesterday (starts 05:17 JST, takes about 10 min) | `daily.yml` (`jwd month`) |
+| current month files (`*/year=YYYY/YYYY-MM.parquet`) | every day, up to yesterday (scheduled 05:17 JST; GitHub often starts it hours later) | `daily.yml` (`jwd month`) |
 | previous months | fetched again on the 1st of the next month (20:00 JST) and once more a month later, when it goes into its year file | `monthly.yml` (`jwd monthly`) |
 | older years (`*/year=YYYY/data.parquet`) | not refetched; JMA's announced corrections are planned | |
 | stations, homogeneity breaks | on the 1st of each month (20:00 JST) | `monthly.yml` |

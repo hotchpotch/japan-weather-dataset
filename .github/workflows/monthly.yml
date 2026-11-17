@@ -21,6 +21,7 @@ on:
 permissions:
   contents: read
   packages: read
+  actions: write # disable the scheduled updates after a block (exit code 4)
 
 # The same group as daily.yml: both rewrite manifest.json and the month
 # files, so they run one after the other.
@@ -47,6 +48,7 @@ jobs:
           docker pull "$JWD_IMAGE"
 
       - name: Monthly update
+        id: update
         env:
           HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -55,9 +57,24 @@ jobs:
         # commit) is written to the mounted GITHUB_STEP_SUMMARY.
         run: |
           mkdir -p "$RUNNER_TEMP/dataset"
+          code=0
           # shellcheck disable=SC2086 # DRY_RUN is empty or one flag
           docker run --rm --init --user "$(id -u):$(id -g)" \
             -e HF_DATASET_REPO -e HF_TOKEN \
             -e GITHUB_STEP_SUMMARY=/summary.md -v "$GITHUB_STEP_SUMMARY:/summary.md" \
             -v "$RUNNER_TEMP/dataset:/dataset" "$JWD_IMAGE" \
-            jwd-monthly.sh $DRY_RUN
+            jwd-monthly.sh $DRY_RUN || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
+
+      - name: Stop the scheduled updates after a block
+        # As in daily.yml: JMA refused access (exit code 4).
+        if: failure() && steps.update.outputs.code == '4'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh workflow disable daily.yml
+          gh workflow disable monthly.yml
+          echo "::error::JMA blocked the access; daily.yml and monthly.yml are disabled. Check the service, then enable them with gh workflow enable."
+          echo "**JMA blocked the access: daily.yml and monthly.yml are disabled.**" >> "$GITHUB_STEP_SUMMARY"

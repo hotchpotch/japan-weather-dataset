@@ -167,6 +167,9 @@ waiting for JMA.
 
 `.github/workflows/daily.yml` runs daily at 05:17 JST (after JMA's 01:00
 and 03:00 updates; not on the hour, when scheduled runs are delayed most).
+GitHub starts scheduled runs late, often by several hours, so the Hub is
+usually updated in the morning or around noon JST; users should read
+`latest_date` in `manifest.json` rather than rely on a time.
 It pulls the image `JWD_IMAGE` (`:latest`, the latest release)
 and runs `scripts/jwd-daily.sh` in it:
 
@@ -203,15 +206,27 @@ Notes for a public repository:
   that forks do not send scheduled requests to JMA.
 - GitHub runners share IP addresses. JMA's rate limiting may answer 429
   sooner than at home, or block an address. The job uses `-interval 6s
-  -min-interval 5s`; a block (exit code 4) fails the job. Do not work
-  around a restriction (see [dataset.md](dataset.md#access-restrictions)).
+  -min-interval 5s`. Do not work around a restriction (see
+  [dataset.md](dataset.md#access-restrictions)).
+- A block (exit code 4) fails the job and disables `daily.yml` and
+  `monthly.yml` (the jobs have `actions: write` for this), so that no
+  scheduled run sends requests until the maintainer has checked the
+  service and the JMA notices. Then enable both again by hand
+  (`gh workflow enable daily.yml`, `gh workflow enable monthly.yml`),
+  possibly with a longer `-interval`. A rate limit the client gave up on
+  (exit code 3) or maintenance (exit code 5) only fails the job; the next
+  scheduled run tries again.
 - Scheduled runs can be delayed or skipped when GitHub is busy; the gap
   filling covers a few skipped days.
 - GitHub disables scheduled workflows of a public repository after 60 days
   without activity in the repository. Uploads to the Hub do not count.
   `.github/workflows/keepalive.yml` enables `daily.yml`, `monthly.yml` and
-  itself again on the 1st and 15th of each month, which resets that
-  period (`gh workflow enable daily.yml` re-enables one by hand).
+  itself again on the 1st and 15th of each month, but only when they are
+  active or were disabled by GitHub for inactivity; a workflow disabled by
+  hand or after a block stays disabled. That enabling resets the period is
+  not documented by GitHub; keepalive tools rely on it. If the workflows
+  are disabled for inactivity anyway, `gh workflow enable daily.yml`
+  re-enables one by hand.
 - `HF_TOKEN` is not available to pull requests from forks; the workflow
   has no pull request trigger.
 
@@ -246,7 +261,15 @@ in it:
       October and November are fetched again after they ended (and days
       the daily job could not fill are filled); rows that did not change
       keep their `updated_at`;
-   4. export: October goes into the year file of 2026; November is a
+   4. check the ended months: the refetch replaces the stored rows of its
+      range, so an incomplete answer from JMA would remove rows, and the
+      oldest month would be settled in its year file without being fetched
+      again. When a station loses at least two days of rows of an ended
+      month (2 daily or 48 hourly rows) and more than a tenth of them, the
+      run stops with exit code 8 and writes nothing (nothing is uploaded).
+      Check the source, then run it again, or pass `-allow-row-loss` when
+      JMA really withdrew the data;
+   5. export: October goes into the year file of 2026; November is a
       month file (December too when the run is repeated later in the
       month and it has rows); stations, homogeneity breaks, the card and
       `manifest.json` are rewritten.

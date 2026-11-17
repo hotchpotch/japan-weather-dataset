@@ -22,6 +22,7 @@ on:
 permissions:
   contents: read
   packages: read
+  actions: write # disable the scheduled updates after a block (exit code 4)
 
 # The same group as monthly.yml: both rewrite manifest.json and the month
 # files, so they run one after the other (the monthly run starts at 20:00
@@ -49,6 +50,7 @@ jobs:
           docker pull "$JWD_IMAGE"
 
       - name: Update the month files
+        id: update
         env:
           HF_DATASET_REPO: ${{ vars.HF_DATASET_REPO }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -58,8 +60,26 @@ jobs:
         # after the fetched days are uploaded.
         run: |
           mkdir -p "$RUNNER_TEMP/dataset"
+          code=0
           docker run --rm --init --user "$(id -u):$(id -g)" \
             -e HF_DATASET_REPO -e HF_TOKEN -e GITHUB_ACTIONS \
             -e GITHUB_STEP_SUMMARY=/summary.md -v "$GITHUB_STEP_SUMMARY:/summary.md" \
             -v "$RUNNER_TEMP/dataset:/dataset" "$JWD_IMAGE" \
-            jwd-daily.sh -refetch-days "$REFETCH_DAYS" -max-gap-days "$MAX_GAP_DAYS"
+            jwd-daily.sh -refetch-days "$REFETCH_DAYS" -max-gap-days "$MAX_GAP_DAYS" || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
+
+      - name: Stop the scheduled updates after a block
+        # JMA refused access (exit code 4): no further scheduled requests
+        # until the maintainer checked the service and enabled the
+        # workflows again (docs/operations.md). keepalive.yml does not
+        # enable workflows that were disabled by hand or by this step.
+        if: failure() && steps.update.outputs.code == '4'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh workflow disable daily.yml
+          gh workflow disable monthly.yml
+          echo "::error::JMA blocked the access; daily.yml and monthly.yml are disabled. Check the service, then enable them with gh workflow enable."
+          echo "**JMA blocked the access: daily.yml and monthly.yml are disabled.**" >> "$GITHUB_STEP_SUMMARY"

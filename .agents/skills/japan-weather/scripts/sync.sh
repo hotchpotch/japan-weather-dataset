@@ -31,6 +31,15 @@ if command -v hf >/dev/null; then
 else
   hf=(uvx --from huggingface_hub hf)
 fi
+# Python reads manifest.json: python3, else the Python of uv.
+if command -v python3 >/dev/null; then
+  py=(python3)
+elif command -v uv >/dev/null; then
+  py=(uv run --no-project --quiet python)
+else
+  echo "sync.sh: needs python3 or uv (https://docs.astral.sh/uv/)" >&2
+  exit 2
+fi
 
 includes=()
 for part in "$@"; do
@@ -55,14 +64,18 @@ for part in "$@"; do
   done
 done
 
+# Both downloads read the same commit, so that an update of the Hub between
+# them cannot leave a month both in its month file and in its year file.
+rev=$("${hf[@]}" datasets info "$repo" --expand sha | "${py[@]}" -c 'import json,sys; print(json.load(sys.stdin)["sha"])')
+
 mkdir -p "$dir"
-echo "sync.sh: metadata from $repo into $dir" >&2
-"${hf[@]}" download "$repo" --repo-type dataset --local-dir "$dir" \
+echo "sync.sh: metadata from $repo@${rev:0:12} into $dir" >&2
+"${hf[@]}" download "$repo" --repo-type dataset --revision "$rev" --local-dir "$dir" \
   --include manifest.json --include README.md \
   --include 'stations/*' --include 'homogeneity_breaks/*' >/dev/null
 
 # Month files that are no longer on the Hub (merged into their year file).
-listed=$(python3 -c 'import json,sys
+listed=$("${py[@]}" -c 'import json,sys
 m=json.load(open(sys.argv[1]))
 for f in ("daily","hourly"):
     for e in m.get(f,{}).get("month_files",[]): print(e["path"])' "$dir/manifest.json")
@@ -76,9 +89,9 @@ for f in "$dir"/daily/year=*/????-??.parquet "$dir"/hourly/year=*/????-??.parque
 done
 
 echo "sync.sh: $*" >&2
-"${hf[@]}" download "$repo" --repo-type dataset --local-dir "$dir" "${includes[@]}" >/dev/null
+"${hf[@]}" download "$repo" --repo-type dataset --revision "$rev" --local-dir "$dir" "${includes[@]}" >/dev/null
 
-python3 -c 'import json,sys
+"${py[@]}" -c 'import json,sys
 m=json.load(open(sys.argv[1]))
 for f in ("daily","hourly"):
     x=m.get(f,{})
