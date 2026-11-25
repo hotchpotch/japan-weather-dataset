@@ -84,15 +84,15 @@ go build -o bin/jwd ./cmd/jwd
 
 ## License
 
-- Data: from the JMA website under the 公共データ利用規約（第1.0版）
-  (PDL 1.0, compatible with CC BY 4.0). When publishing results, credit
-  the source and who processed it, and do not present them as made by JMA
-  or the government, for example:
-
-  > 出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに`{加工者の名前}`が加工して作成
-
-  The dataset on the Hub is processed by Yuichi Tateno (@hotchpotch).
-- Code: MIT. Test fixtures under `internal/obsdl/testdata` are small
+- Data: from JMA's 「過去の気象データ・ダウンロード」
+  (<https://www.data.jma.go.jp/risk/obsdl/>). Use it under the
+  [公共データ利用規約（第1.0版） (PDL 1.0)](https://www.digital.go.jp/resources/open_data/public_data_license_v1.0) or
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), as the [JMA website terms](https://www.jma.go.jp/jma/kishou/info/coment.html) allow.
+  PDL 1.0 notes that numerical data and simple tables are not protected by
+  copyright.
+- Dataset: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), processed by Yuichi Tateno (@hotchpotch)
+  from the data above.
+- Code: [MIT](LICENSE). Test fixtures under `internal/obsdl/testdata` are small
   excerpts of JMA data (PDL 1.0).
 
 > [!NOTE]

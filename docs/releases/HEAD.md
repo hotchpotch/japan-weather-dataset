@@ -15,3 +15,6 @@
   instead of `llms.txt` on GitHub Pages.
 - `site/` has the Japanese introduction page and the example analyses,
   deployed to GitHub Pages by `.github/workflows/pages.yml`.
+- README, the dataset card, the agent skill and docs/usage.md ask to use
+  the data under PDL 1.0 or CC BY 4.0 (linked) instead of prescribing who
+  to name in the credit, and the README states the dataset license.

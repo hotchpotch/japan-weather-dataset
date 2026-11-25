@@ -89,15 +89,14 @@ Columns, daily vs hourly, the hour convention and `manifest.json`:
 - Do not download all hourly values (~1.9 GB) unless the task needs them;
   select years.
 - Do not commit downloaded data; never print or commit tokens (`HF_TOKEN`).
-- This is a processed copy, not published by JMA. The data is under the
-  公共データ利用規約（第1.0版） (PDL 1.0), usable under CC BY 4.0. When
-  publishing results (tables, charts, aggregates), follow its terms:
-  - Credit the source and state that the user processed it, naming who:
+- This is a processed copy, not published by JMA. Use the data under the
+  [公共データ利用規約（第1.0版） (PDL 1.0)](https://www.digital.go.jp/resources/open_data/public_data_license_v1.0)
+  or [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), as the [JMA website terms](https://www.jma.go.jp/jma/kishou/info/coment.html) allow (the
+  dataset itself is CC BY 4.0). When publishing results (tables, charts,
+  aggregates), follow the license the user chooses:
+  - Credit the source as the license and the JMA terms ask, for example
     出典：気象庁ホームページ「過去の気象データ・ダウンロード」
-    （https://www.data.jma.go.jp/risk/obsdl/）をもとに`{加工者の名前}`が加工して作成.
-    Ask the user for the name if unknown. The dataset's processor does not
-    have to be named; mentioning the dataset as the route
-    (Hugging Face `hotchpotch/japan-weather`) is optional.
+    （https://www.data.jma.go.jp/risk/obsdl/）を加工して作成.
   - Do not present results as if JMA or the government made or endorsed
     them (no 「気象庁発表」, 「気象庁作成」, JMA logos or official-looking
     styling).
