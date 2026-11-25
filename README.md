@@ -82,6 +82,17 @@ go build -o bin/jwd ./cmd/jwd
 - [docs/operations.md](docs/operations.md): the daily and monthly updates.
 - [docs/release.md](docs/release.md): releases and the image.
 
+## Contributing
+
+- Found values that look wrong, or data that seems to need fetching
+  again? Please open an
+  [issue](https://github.com/hotchpotch/japan-weather-dataset/issues)
+  with the station, the date and the element if you can. Issues in
+  Japanese are welcome (日本語でも大丈夫です).
+- Pull requests are welcome too, but the maintainer may not merge them
+  as they are and may rewrite the change instead. Thank you for your
+  understanding.
+
 ## License
 
 - Data: from JMA's 「過去の気象データ・ダウンロード」
