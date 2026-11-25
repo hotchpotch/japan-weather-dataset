@@ -17,16 +17,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  # Upload and deploy run in separate jobs, as in GitHub's starter
+  # workflow: a deploy in the same job as the upload sometimes does not
+  # find the artifact yet.
+  build:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -35,5 +31,17 @@ jobs:
       - uses: actions/upload-pages-artifact@v5.0.0
         with:
           path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v5.0.1
