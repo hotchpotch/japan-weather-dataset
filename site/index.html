@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>japan-weather-dataset | 150年分の気象データを、簡単に分析する。</title>
+<title>japan-weather-dataset | 150年分の気象データを、高速に、簡単に分析する。</title>
 <meta name="description" content="1872年からの150年分、全国1,678地点の気象観測記録を、AIがすぐ使える形にまとめたオープンデータセット。データは毎日更新。URLを一つ渡せば、AIが調べて答えます。">
 <link rel="canonical" href="https://hotchpotch.github.io/japan-weather-dataset/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="japan-weather-dataset">
 <meta property="og:locale" content="ja_JP">
-<meta property="og:title" content="japan-weather-dataset | 150年分の気象データを、簡単に分析する。">
+<meta property="og:title" content="japan-weather-dataset | 150年分の気象データを、高速に、簡単に分析する。">
 <meta property="og:description" content="1872年からの150年分、全国1,678地点の気象観測記録を、AIがすぐ使える形にまとめたオープンデータセット。データは毎日更新。URLを一つ渡せば、AIが調べて答えます。">
 <meta property="og:url" content="https://hotchpotch.github.io/japan-weather-dataset/">
 <meta property="og:image" content="https://hotchpotch.github.io/japan-weather-dataset/images/og.png">
@@ -159,6 +159,12 @@ h1 .nw,h2 .nw{display:inline-block}
 .feat.alt .feat-grid{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
 .feat.alt .feat-copy{order:2}
 .note-s{font-size:11.5px;color:var(--muted)}
+.fast{margin-top:22px;padding:16px 18px;border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:10px;background:var(--surface)}
+.fast>b{display:block;font-size:15px;margin-bottom:6px}
+.fast ul{margin:0;padding-left:1.2em;font-size:14px;line-height:1.8;color:var(--ink2)}
+.fast li+li{margin-top:4px}
+.fast li b{color:var(--ink)}
+.fast p{margin:10px 0 0;font-size:13px;line-height:1.7;color:var(--muted)}
 
 /* map */
 .mapbox{display:grid;grid-template-columns:minmax(0,1fr);padding:6px 18px 16px;position:relative}
@@ -334,7 +340,7 @@ footer p{margin:0}
           <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
           <div><b>japan-weather-dataset</b><span class="sub">OPEN WEATHER DATA FOR AI</span></div>
         </div>
-        <h1><span class="nw">150年分の</span><span class="nw">気象データを、</span><br><span class="nw">簡単に分析する。</span></h1>
+        <h1><span class="nw">150年分の</span><span class="nw">気象データを、</span><br><span class="nw">高速に、</span><span class="nw">簡単に分析する。</span></h1>
         <p class="lead">気象庁が「<a href="https://www.data.jma.go.jp/risk/obsdl/">過去の気象データ・ダウンロード</a>」で公開している、全国の気象台とアメダス約1,700地点の観測記録を、全期間にわたって集め、分析しやすい形にまとめました。URLを一つ渡せば、AIが調べて答えます。</p>
         <div class="cta-row">
           <a class="cta" href="#start">
@@ -390,6 +396,15 @@ footer p{margin:0}
       <h2><span class="nw">150年分の</span><span class="nw">気象データへ</span><span class="nw">アクセス。</span></h2>
       <p class="lead">1872年の函館から、1976年に始まったアメダスまで。気象台とアメダスの全1,678地点について、日別値（23要素）と時別値（15要素）を前日の分まで収録しています。気温、降水量、積雪、風、日照、日射、湿度、気圧、雲量、天気概況。データは毎日更新しています。</p>
       <p class="lead" style="margin-top:14px">値ごとに品質情報と均質番号（観測場所や観測方法の変更を示す番号）を残しているので、長い期間の比較でも、移転や測り方の変更を考慮できます。</p>
+      <div class="fast">
+        <b>なぜ高速に分析できるのか</b>
+        <ul>
+          <li><b>Parquet 形式</b>：値を列ごとに圧縮して保存しています。集計に使う列だけを読むので、読み込む量が少なくて済みます。</li>
+          <li><b>年ごとのファイル</b>：必要な年だけを取得して読めます。日別値の全体でも約215MBです。</li>
+          <li><b>DuckDB</b>：分析向けのデータベースです。サーバーは不要で、手元のPCの複数のCPUコアを使って集計します。</li>
+        </ul>
+        <p>日別値の全体（約2,600万行）を年ごとに集計しても、手元のPCで1秒もかかりません。</p>
+      </div>
       <div class="mores">
         <a class="more" href="https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/dataset.md">収録している列を見る<svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></a>
       </div>
