@@ -196,7 +196,8 @@ h1 .nw,h2 .nw{display:inline-block}
 .nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:rgba(255,255,255,.12);border-radius:12px;overflow:hidden;margin-top:44px}
 .nums div{background:var(--band);padding:18px 20px}
 .nums b{display:block;font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.3}
-.nums small{color:var(--band-muted);font-size:12px;line-height:1.6;display:block}
+.nums .k{display:block;font-size:14px;font-weight:700;margin-top:2px}
+.nums small{color:var(--band-muted);font-size:12px;line-height:1.6;display:block;margin-top:2px}
 
 /* showroom */
 .center{text-align:center}
@@ -457,18 +458,18 @@ footer p{margin:0}
       </div>
       <div>
         <p>気象庁の「<a href="https://www.data.jma.go.jp/risk/obsdl/">過去の気象データ・ダウンロード</a>」は、誰でも無料で使える公開データです。ただ、画面で地点と期間を選んでCSVを受け取る仕組みで、1回に受け取れる量には上限があります。プログラム向けのAPIの提供はありません。</p>
-        <p>そこで、気象庁のサーバーに負荷をかけないよう、要求を1回ずつ間隔を空けて送り、全期間のデータを取得しました（要求は約7万回）。取得したデータは、分析に適した <a href="https://parquet.apache.org/">Parquet</a> 形式にまとめて <a href="https://huggingface.co/datasets/hotchpotch/japan-weather">Hugging Face</a> で公開しています。<a href="https://duckdb.org/">DuckDB</a> などを使えば、SQLですぐに集計できます。</p>
+        <p>そこで、気象庁のサーバーに負荷をかけないよう、要求を1回ずつ間隔を空けて送り、全期間のデータを取得しました。取得したデータは、分析に適した <a href="https://parquet.apache.org/">Parquet</a> 形式にまとめて <a href="https://huggingface.co/datasets/hotchpotch/japan-weather">Hugging Face</a> で公開しています。<a href="https://duckdb.org/">DuckDB</a> などを使えば、SQLですぐに集計できます。</p>
         <a class="more" href="https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/source.md">取得の仕組みを読む<svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></a>
       </div>
     </div>
     <div class="nums">
-      <div><b>約2,600万行</b><small>日別値（約215MB）</small></div>
-      <div><b>約6億行</b><small>時別値（約1.9GB）</small></div>
-      <div><b>約7万回</b><small>全期間の取得に送った要求</small></div>
+      <div><b>1872年から</b><span class="k">1日ごとのデータ（日別値）</span><small>気象台は1872年から、アメダスは1976年から。約2,600万行</small></div>
+      <div><b>1885年から</b><span class="k">1時間ごとのデータ（時別値）</span><small>気象台は1885年から、アメダスは1976年から。約6億行</small></div>
+      <div><b>前日まで</b><span class="k">毎日更新</span><small>毎日、前日までの観測を追加します。直近の値は速報値です</small></div>
     </div>
     <dl class="lic">
       <div><dt>元データ</dt><dd>気象庁ホームページ「<a href="https://www.data.jma.go.jp/risk/obsdl/">過去の気象データ・ダウンロード</a>」（<a href="https://www.digital.go.jp/resources/open_data/public_data_license_v1.0">公共データ利用規約（第1.0版）</a>）</dd></div>
-      <div><dt>データセット</dt><dd><a href="https://creativecommons.org/licenses/by/4.0/deed.ja">CC BY 4.0</a>（公共データ利用規約は CC BY 4.0 と互換）。利用するときは出典の表示が必要です。書き方は<a href="https://huggingface.co/datasets/hotchpotch/japan-weather">データセットのカード</a>にあります。</dd></div>
+      <div><dt>データセット</dt><dd><a href="https://creativecommons.org/licenses/by/4.0/deed.ja">CC BY 4.0</a>。元データは公共データ利用規約（第1.0版）または <a href="https://creativecommons.org/licenses/by/4.0/deed.ja">CC BY 4.0</a> に沿って利用してください。</dd></div>
       <div><dt>データ取得ツール</dt><dd><a href="https://github.com/hotchpotch/japan-weather-dataset">hotchpotch/japan-weather-dataset</a>（GitHub、<a href="https://github.com/hotchpotch/japan-weather-dataset/blob/main/LICENSE">MIT License</a>）</dd></div>
     </dl>
   </div>
@@ -479,7 +480,7 @@ footer p{margin:0}
     <div class="center">
       <p class="eyebrow">Showroom</p>
       <h2>AIが確かめた、5つの問い。</h2>
-      <p class="lead">このデータを使ってAIエージェントが分析し、1つのページにまとめた例です。どれも観測データから数え直したもので、方法と限界をページの最後に書いています。</p>
+      <p class="lead">このデータを使ってAIエージェントが1つのページにまとめた例です。どれも観測データから分析したものです。</p>
     </div>
     <div class="cards">
       <a class="card" href="analyses/warming/">
