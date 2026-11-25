@@ -3,8 +3,10 @@
 # scripts/jwd-daily.sh in the released image JWD_IMAGE.
 #
 # Needs the repository variable HF_DATASET_REPO (e.g. user/japan-weather)
-# and the secret HF_TOKEN (write access to that dataset). The months before
-# are rewritten by the monthly run (monthly.yml).
+# and the secret HF_TOKEN (write access to that dataset); optionally the
+# secret HEALTHCHECKS_DAILY_URL for monitoring (docs/operations.md,
+# "Monitoring"). The months before are rewritten by the monthly run
+# (monthly.yml).
 name: daily
 
 on:
@@ -42,6 +44,16 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     steps:
+      - name: Report the start to Healthchecks.io
+        # Monitoring (docs/operations.md, "Monitoring"): skipped without
+        # the secret; a failed ping only warns.
+        env:
+          HC_URL: ${{ secrets.HEALTHCHECKS_DAILY_URL }}
+        run: |
+          [ -n "$HC_URL" ] || exit 0
+          curl -fsS -m 10 --retry 5 --retry-all-errors -o /dev/null "$HC_URL/start" ||
+            echo "::warning::Healthchecks.io did not receive the start"
+
       - name: Pull the image
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,3 +95,22 @@ jobs:
           gh workflow disable monthly.yml
           echo "::error::JMA blocked the access; daily.yml and monthly.yml are disabled. Check the service, then enable them with gh workflow enable."
           echo "**JMA blocked the access: daily.yml and monthly.yml are disabled.**" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report the result to Healthchecks.io
+        # Success (0) or the exit code of the update (fail when the job
+        # failed elsewhere): Healthchecks.io alerts at once on a failure.
+        if: always()
+        env:
+          HC_URL: ${{ secrets.HEALTHCHECKS_DAILY_URL }}
+          JOB_STATUS: ${{ job.status }}
+          CODE: ${{ steps.update.outputs.code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -n "$HC_URL" ] || exit 0
+          if [ "$JOB_STATUS" = success ]; then path=0
+          elif [ -n "$CODE" ] && [ "$CODE" != 0 ]; then path=$CODE
+          else path=fail
+          fi
+          curl -fsS -m 10 --retry 5 --retry-all-errors -o /dev/null \
+            --data-raw "$JOB_STATUS, exit code ${CODE:-none}: $RUN_URL" "$HC_URL/$path" ||
+            echo "::warning::Healthchecks.io did not receive the result"

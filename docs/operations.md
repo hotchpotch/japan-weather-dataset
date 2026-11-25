@@ -341,6 +341,33 @@ what was changed and why.
 - The commit message carries the latest date and, once implemented, the
   IDs of the corrections applied.
 
+## Monitoring
+
+Both workflows report to [Healthchecks.io](https://healthchecks.io/), which
+alerts the maintainer (by e-mail) when a run failed or did not happen,
+e.g. a schedule GitHub skipped or a workflow that was disabled.
+
+| check | secret | schedule on Healthchecks.io | alerts |
+|---|---|---|---|
+| daily | `HEALTHCHECKS_DAILY_URL` | period 1 day, grace 12 hours | no success for 36 hours, or a failed run |
+| monthly | `HEALTHCHECKS_MONTHLY_URL` | cron `0 20 1 * *` (Asia/Tokyo), grace 1 day | no success by the 2nd 20:00 JST, or a failed run |
+
+The daily period does not follow the cron of `daily.yml`, because GitHub
+starts the run several hours late. A monthly run started by hand counts
+as the run of that month.
+
+Each job pings `<url>/start` first and `<url>/<exit code>` last (`/0` on
+success, the exit code of `jwd-daily.sh` or `jwd-monthly.sh` on a failure,
+`/fail` when an earlier step failed), with the run's URL as the body. A
+dry run of the monthly workflow only sends `<url>/log`, which is recorded
+without changing the check. A secret is the check's ping URL (without a
+trailing slash). Without it (e.g. in a fork) the steps do nothing, and a
+ping that fails after retries only adds a warning: the monitoring never
+fails an update. A block (exit code 4) is reported as a failure, and as
+the workflows are then disabled, the check stays down until they run
+again. The workflow files are read from `main`, so a change here needs no
+release.
+
 ## Releases and the image
 
 The `Dockerfile` builds an image with `jwd`, the `hf` CLI and `scripts/`

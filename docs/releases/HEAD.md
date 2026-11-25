@@ -1,5 +1,12 @@
 # HEAD
 
+## Operation
+
+- `daily.yml` and `monthly.yml` report their start and result to
+  Healthchecks.io (secrets `HEALTHCHECKS_DAILY_URL` and
+  `HEALTHCHECKS_MONTHLY_URL`), which alerts when a run failed or did not
+  happen (docs/operations.md, "Monitoring").
+
 ## Dataset
 
 - The dataset card is shorter: a summary, links to docs/dataset.md, the
