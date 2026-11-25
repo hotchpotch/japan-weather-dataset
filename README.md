@@ -97,3 +97,9 @@ go build -o bin/jwd ./cmd/jwd
 
 > [!NOTE]
 > This project is not affiliated with JMA or the Government of Japan.
+
+## Author
+
+- Yuichi Tateno ([@hotchpotch](https://github.com/hotchpotch))
+
+<img height="160" src="https://storage.googleapis.com/secons-site-images/other/blog_images/secon_icon_nendo.webp" alt="Yuichi Tateno" />
