@@ -12,35 +12,48 @@ day, with an agent skill so that AI agents can analyze it.
 
 ## Use the dataset
 
-Download the parts you need and query them with DuckDB:
+### 1. Give the URL to an AI agent (recommended)
 
-```sh
-.agents/skills/japan-weather/scripts/sync.sh daily   # ~215 MB into ~/.cache/japan-weather/data
-duckdb -c "SELECT date, temperature_max FROM read_parquet('~/.cache/japan-weather/data/daily/*/*.parquet', hive_partitioning = false)
-           WHERE station_id = 's47662' AND date >= DATE '2025-08-01' ORDER BY date LIMIT 5"
+Put the URL of [llms.txt](https://hotchpotch.github.io/japan-weather-dataset/llms.txt),
+the entry point for AI agents, into the prompt with your question. Nothing
+to install: agents that can run commands, such as Claude Code or Codex,
+read the guide, download the parts they need and analyze them.
+
+```text
+Has the number of days of 35°C or more increased in Japan? Analyze the
+observation records. Use this data: https://hotchpotch.github.io/japan-weather-dataset/llms.txt
 ```
 
-`sync.sh` also takes ranges such as `daily:2020-2026` or `hourly:2025`.
-[docs/local-copy.md](docs/local-copy.md) covers keeping a copy up to date.
-
-## Use it with AI agents
+### 2. Install the agent skill
 
 The [`japan-weather`](.agents/skills/japan-weather/SKILL.md) skill
 ([Agent Skills](https://agentskills.io/specification) format) teaches
 coding agents the dataset: downloading only what is needed, the columns,
-SQL recipes and the pitfalls of long-term comparisons.
+SQL recipes and the pitfalls of long-term comparisons. Once installed in a
+project, it is used for questions about the weather.
 
-- In this repository, it is already available to Codex (`.agents/skills/`)
-  and Claude Code (`.claude/skills/`).
-- In another project:
+```sh
+npx skills add hotchpotch/japan-weather-dataset --skill japan-weather
+```
 
-  ```sh
-  npx skills add hotchpotch/japan-weather-dataset --skill japan-weather
-  ```
+In this repository, it is already available to Codex (`.agents/skills/`)
+and Claude Code (`.claude/skills/`).
 
-- Without installing anything, give the agent the
-  [llms.txt](https://hotchpotch.github.io/japan-weather-dataset/llms.txt)
-  URL with your question.
+### 3. Query it with SQL
+
+Download only the parts you need from
+[Hugging Face](https://huggingface.co/datasets/hotchpotch/japan-weather)
+and read them with DuckDB, pandas or Polars. The example is the daily
+maximum temperature in Tokyo (`s47662`):
+
+```sh
+.agents/skills/japan-weather/scripts/sync.sh daily   # ~215 MB into ~/.cache/japan-weather/data
+duckdb -c "SELECT date, temperature_max FROM read_parquet('~/.cache/japan-weather/data/daily/*/*.parquet', hive_partitioning = false)
+           WHERE station_id = 's47662' ORDER BY date DESC LIMIT 7"
+```
+
+`sync.sh` also takes ranges such as `daily:2020-2026` or `hourly:2025`.
+[docs/local-copy.md](docs/local-copy.md) covers keeping a copy up to date.
 
 ## Build the dataset yourself
 
