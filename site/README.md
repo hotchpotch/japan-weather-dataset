@@ -1,16 +1,15 @@
 # site
 
-The introduction page of the project (Japanese only), meant for GitHub
-Pages at <https://hotchpotch.github.io/japan-weather-dataset/>. Pages is
-not enabled yet.
+The introduction page of the project (Japanese only), published on GitHub
+Pages at <https://hotchpotch.github.io/japan-weather-dataset/>.
 
 - `index.html`: the page. The prompt example and the links for AI agents
-  point to the raw URL of [docs/usage.md](../docs/usage.md) on `main`,
-  so they work only once the repository is public. Self-contained: inline
-  CSS and JS (the question demo, the station map, the document viewer, the
-  copy buttons), inline SVG icons ([Lucide](https://lucide.dev), ISC
-  License; the Hugging Face logo), system fonts, no external scripts. Light and dark follow the
-  system setting; animations respect `prefers-reduced-motion`. The station
+  point to the raw URL of [docs/usage.md](../docs/usage.md) on `main`.
+  Self-contained: inline CSS and JS (the question demo, the station map,
+  the document viewer, the copy buttons), inline SVG icons
+  ([Lucide](https://lucide.dev), ISC License; the Hugging Face logo),
+  system fonts, no external scripts. Light and dark follow the system
+  setting; animations respect `prefers-reduced-motion`. The station
   coordinates and the warming stripes (yearly anomalies of the 15-station
   mean, 1898–2025) are inlined as JSON.
 - `analyses/<name>/index.html`: the example analyses made with the dataset
@@ -31,13 +30,8 @@ update their numbers silently.
 To check the pages locally, open `site/index.html` in a browser (no server
 needed).
 
-## Publishing (after the repository is public)
+## Publishing
 
-Pages can deploy only `/` or `/docs` from a branch, so the `site/`
-directory needs a workflow: Settings → Pages → Source: GitHub Actions, then
-a workflow on `push` to `main` (paths `site/**`) that runs
-`actions/configure-pages`, `actions/upload-pages-artifact` with
-`path: site` and `actions/deploy-pages`, with `permissions: pages: write,
-id-token: write` and the `github-pages` environment. Pin the actions by
-release tag and update `.github/workflows/actions.lock` as for the other
-workflows.
+`.github/workflows/pages.yml` deploys `site/` to GitHub Pages on every
+push to `main` that changes it (Settings → Pages → Source: GitHub
+Actions).

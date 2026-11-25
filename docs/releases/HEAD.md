@@ -13,5 +13,5 @@
 - README is shorter; the crawler reference moved to docs/crawler.md.
 - The entry point for AI agents is `docs/usage.md` (raw URL on `main`)
   instead of `llms.txt` on GitHub Pages.
-- `site/` has the Japanese introduction page and the example analyses for
-  GitHub Pages (not enabled yet).
+- `site/` has the Japanese introduction page and the example analyses,
+  deployed to GitHub Pages by `.github/workflows/pages.yml`.
