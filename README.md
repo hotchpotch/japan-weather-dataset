@@ -26,6 +26,14 @@ observation records. Use this data:
 https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md
 ```
 
+In Japanese:
+
+```text
+猛暑日（最高気温35℃以上の日）は日本で増えている？過去の観測データから分析して。
+次のデータを使うこと：
+https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md
+```
+
 ### 2. Install the agent skill
 
 The [`japan-weather`](.agents/skills/japan-weather/SKILL.md) skill
