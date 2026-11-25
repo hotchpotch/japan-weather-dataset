@@ -35,7 +35,7 @@ To keep the skill in a project instead: `npx skills add hotchpotch/japan-weather
 
 ## Dataset
 
-- [Dataset card](https://huggingface.co/datasets/hotchpotch/japan-weather/raw/main/README.md): layout, columns, license and credit (Markdown). Web page: https://huggingface.co/datasets/hotchpotch/japan-weather
+- [Dataset card](https://huggingface.co/datasets/hotchpotch/japan-weather/raw/main/README.md): summary, license and credit, columns (Markdown). Web page: https://huggingface.co/datasets/hotchpotch/japan-weather
 - [docs/dataset.md](https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/dataset.md): the dataset definition: elements, keys and time, homogeneity, files, update strategy.
 - [docs/local-copy.md](https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/local-copy.md): how fresh the Hub is, keeping a local copy up to date, fetching days newer than the Hub.
 

@@ -28,90 +28,56 @@ configs:
 # Japan Weather Observations (JMA, daily and hourly)
 
 Daily and hourly surface observations of every station of the Japan
-Meteorological Agency (JMA): the official stations (気象台・測候所等) and the
-AMeDAS network, converted to Parquet and updated every day.
+Meteorological Agency (JMA), the official stations (気象台・測候所等) and
+AMeDAS, as Parquet, updated every day.
 
-- Source: JMA 「過去の気象データ・ダウンロード」 <https://www.data.jma.go.jp/risk/obsdl/>
 - Stations: {{.Stations}} (including stations that no longer observe)
-- Daily values from {{.DailyFrom}} and hourly values from {{.HourlyFrom}} up to a day or two ago (JST); `latest_date` in `manifest.json` gives the last day. Values of recent days are preliminary and may be revised by JMA.
-- Built with <https://github.com/hotchpotch/japan-weather-dataset>
-- Local copies, freshness and updating them yourself: <https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/local-copy.md>
-- Agent skill (Claude Code, Codex) with SQL recipes and pitfalls: <https://github.com/hotchpotch/japan-weather-dataset/tree/main/.agents/skills/japan-weather>
+- Daily values from {{.DailyFrom}} and hourly values from {{.HourlyFrom}}, up to a day or two ago (JST). `manifest.json` gives the last day; values of recent days are preliminary.
+- Source: JMA 「過去の気象データ・ダウンロード」 <https://www.data.jma.go.jp/risk/obsdl/>
 
-**This dataset is not published by JMA or the Government of Japan.** It is a
-processed copy made by a third party. Check important values against the
-original service.
+**Not published by JMA or the Government of Japan.** It is a processed copy
+made by a third party.
+
+## Documentation
+
+- The data (tables, columns, quality flags, homogeneity, files, updates): [docs/dataset.md](https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/dataset.md)
+- Keeping a local copy: [docs/local-copy.md](https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/local-copy.md)
+- For AI agents: give this URL with your question: <https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md>
+- 日本語の紹介と分析例：<https://hotchpotch.github.io/japan-weather-dataset/>
+- The crawler that builds this dataset: <https://github.com/hotchpotch/japan-weather-dataset>
+
+## Usage
+
+```sql
+-- DuckDB: the 10 stations with the most rain on 2019-10-12
+SELECT s.name, d.date, d.precipitation_total
+FROM 'hf://datasets/hotchpotch/japan-weather/daily/year=2019/*.parquet' d
+JOIN 'hf://datasets/hotchpotch/japan-weather/stations/stations.parquet' s USING (station_id)
+WHERE d.date = '2019-10-12' AND d.precipitation_total_quality IN (5, 8)
+ORDER BY d.precipitation_total DESC
+LIMIT 10;
+```
+
+Configs: `daily` (default), `hourly`, `stations`, `homogeneity_breaks`.
+Use values with quality 8 (normal) or 5 (quasi-normal).
 
 ## 出典・ライセンス
 
 出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに Yuichi Tateno (@hotchpotch) が加工して作成
 
-The source data is published under the
+The source data is under the
 [公共データ利用規約（第1.0版） / Public Data License 1.0](https://www.digital.go.jp/resources/open_data/public_data_license_v1.0)
-as stated in the [JMA website terms](https://www.jma.go.jp/jma/kishou/info/coment.html).
-PDL 1.0 is compatible with CC BY 4.0, and the government permits use of the
-content under CC BY 4.0; this dataset is distributed under CC BY 4.0.
+([JMA website terms](https://www.jma.go.jp/jma/kishou/info/coment.html)),
+which is compatible with CC BY 4.0; this dataset is distributed under
+CC BY 4.0. If you publish results made from it, credit the source and name
+who processed it, for example
+「出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに`{加工者の名前}`が加工して作成」,
+and do not present them as made by the government.
 
-Processed by Yuichi Tateno (@hotchpotch): the CSV files of the source service
-are combined across stations and periods and converted to Parquet tables with
-English column names (see the columns below).
+## Columns
 
-When you use this dataset, credit the source as above and state that it was
-processed. If you process it further and publish the results, state that you
-processed it, for example 「出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに○○が加工して作成」.
-Do not present processed data as if the government created it.
-
-## Usage
-
-```sql
--- Daily maximum temperature in Tokyo (s47662) in August 2025
-SELECT date, temperature_max, temperature_max_quality
-FROM daily
-WHERE station_id = 's47662' AND date BETWEEN '2025-08-01' AND '2025-08-31'
-ORDER BY date;
-```
-
-```python
-from datasets import load_dataset
-daily = load_dataset("hotchpotch/japan-weather", "daily", split="train")
-```
-
-```sql
--- DuckDB, reading from the Hub
-SELECT s.name, d.date, d.precipitation_total
-FROM 'hf://datasets/hotchpotch/japan-weather/daily/year=2019/data.parquet' d
-JOIN 'hf://datasets/hotchpotch/japan-weather/stations/stations.parquet' s USING (station_id)
-WHERE d.date = '2019-10-12'
-ORDER BY d.precipitation_total DESC NULLS LAST
-LIMIT 10;
-```
-
-## Tables
-
-- `stations`: station list with position, prefecture, observed categories and the years with data.
-- `daily`: one row per station and day.
-- `hourly`: one row per station and hour. `hour` is 1..24 and the values cover the hour *ending* at `hour`:00 JST; hour 24 is midnight at the end of `date`. `datetime_jst` is the same instant as a timestamp without time zone.
-- `homogeneity_breaks`: dates where JMA's homogeneity number (均質番号) of an element changes, e.g. after a station moved or instruments changed. Values on either side of a break should not be compared directly.
-
-Rows where no element was observed are omitted. Elements that a station does
-not observe are null with quality 0 or null.
-
-### Quality flags (`*_quality`)
-
-| value | meaning |
-|---|---|
-| 8 | normal (正常値) |
-| 5 | quasi-normal: some source data missing within the allowed range (準正常値) |
-| 4 | insufficient data (資料不足値) |
-| 2 | questionable (疑問値) |
-| 1 | missing (欠測) |
-| 0 | not an observed / derived element (観測・統計項目でない) |
-
-`*_no_phenomenon` is JMA's 現象なし情報: true means the phenomenon (rain,
-snow, sunshine) did not occur, as opposed to a value of 0 with the
-phenomenon present. Only official stations report it; it is null for AMeDAS.
-
-Wind directions are 16-point codes: 1 = NNE, 2 = NE, …, 15 = NNW, 16 = N, 0 = calm.
+<details>
+<summary>Columns of <code>daily</code> and <code>hourly</code></summary>
 
 ### daily
 
@@ -125,20 +91,5 @@ Wind directions are 16-point codes: 1 = NNE, 2 = NE, …, 15 = NNW, 16 = N, 0 = 
 |---|---|---|
 {{range .HourlyColumns}}| {{.Name}} | {{.Type}} | {{.Description}} |
 {{end}}
-## Files
 
-`daily/year=YYYY/data.parquet` and `hourly/year=YYYY/data.parquet` hold the
-rows up to the month before the recent months; the recent months (the month
-of the day after the latest day and the month before) are in
-`daily/year=YYYY/YYYY-MM.parquet` and `hourly/year=YYYY/YYYY-MM.parquet`.
-The current month is updated every day; when a month ends, the monthly
-update on the 1st merges the oldest month file into its year file. Read `daily/*/*.parquet` to get all
-rows. `manifest.json` lists the latest date and the month files with their
-missing days.
-
-## Notes
-
-- Station ids are obsdl ids: `s` + WMO-style 5 digits for official stations, `a` + 4 digits for AMeDAS stations.
-- Station positions are the current (or last) positions given in degrees and 0.1 minutes; past relocations are not reflected.
-- AMeDAS sunshine duration since March 2021 is estimated from satellite data by JMA.
-- JMA corrects past values from time to time. The last days are fetched again every day and the month before once more after it ended (then it moves into its year file); older years are not fetched again (applying JMA's announced corrections is planned).
+</details>

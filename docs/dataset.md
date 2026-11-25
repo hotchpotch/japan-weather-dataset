@@ -52,9 +52,20 @@ They may be added later as separate configs.
 | cloud_cover | 607 | 雲量 | 0–10 | ✓ | |
 | visibility | 704 | 視程 | km | ✓ | |
 
-Every element has `<column>_quality` (品質情報). Precipitation, snow and
-sunshine have `<column>_no_phenomenon` (現象なし情報, official stations
-only). Wind maxima and hourly wind have `<column>_direction` and
+Every element has `<column>_quality` (品質情報):
+
+| value | meaning |
+|---|---|
+| 8 | normal (正常値) |
+| 5 | quasi-normal: some source data missing within the allowed range (準正常値) |
+| 4 | insufficient data (資料不足値) |
+| 2 | questionable (疑問値) |
+| 1 | missing (欠測) |
+| 0 | not an observed / derived element (観測・統計項目でない) |
+
+Precipitation, snow and sunshine have `<column>_no_phenomenon`
+(現象なし情報, official stations only): true means the phenomenon did not
+occur, as opposed to a value of 0 with the phenomenon present. Wind maxima and hourly wind have `<column>_direction` and
 `<column>_direction_quality`. Cloud cover has `<column>_modifier` (`+`/`-`).
 Wind directions: 1 = NNE … 16 = N, 0 = calm.
 

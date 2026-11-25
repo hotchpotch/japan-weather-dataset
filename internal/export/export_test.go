@@ -137,7 +137,8 @@ func TestExportLayout(t *testing.T) {
 	}
 }
 
-// The card credits the source and names who processed it (PDL 1.0, 1.1.2).
+// The card credits the source and names who processed it (PDL 1.0, 1.1.2),
+// and points to the documents of the data and the entry point for agents.
 func TestCardCredit(t *testing.T) {
 	ctx := context.Background()
 	s, err := store.Open(t.TempDir())
@@ -160,6 +161,8 @@ func TestCardCredit(t *testing.T) {
 		"license: cc-by-4.0",
 		"出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに Yuichi Tateno (@hotchpotch) が加工して作成",
 		"public_data_license_v1.0",
+		"https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md",
+		"docs/dataset.md",
 	} {
 		if !strings.Contains(card, want) {
 			t.Errorf("card lacks %q", want)
