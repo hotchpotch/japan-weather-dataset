@@ -41,4 +41,9 @@ To keep the skill in a project instead: `npx skills add hotchpotch/japan-weather
 - [docs/source.md](https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/source.md): how JMA's obsdl service works and its limits.
 - [docs/operations.md](https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/operations.md): the daily and monthly updates, JMA's preliminary and final values.
 - [README.md](https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/README.md): the `jwd` crawler (Go), building and running it.
-- Example analyses made with this dataset (Japanese pages): [日本は本当に温暖化しているのか](https://claude.ai/artifact/JbyAmikH7ZMZQzPmXi7dhN), [酷暑日は増えたのか](https://claude.ai/artifact/BpufPmdg56PKiwUvTtU1Ao), [雪は、どこで減ったのか](https://claude.ai/artifact/YDBJHEXQDVSpnhY5BVAfXb)
+- Example analyses made with this dataset (Japanese pages, each with its method and limits at the end):
+  - [日本は本当に温暖化しているのか](https://hotchpotch.github.io/japan-weather-dataset/analyses/warming/): warming at 15 low-urbanization stations since 1898 and at 805 stations since 1980.
+  - [酷暑日は増えたのか](https://hotchpotch.github.io/japan-weather-dataset/analyses/kokusho/): days of 40℃ or more since 1927, with the AMeDAS 2003 step corrected.
+  - [雪は、どこで減ったのか](https://hotchpotch.github.io/japan-weather-dataset/analyses/snow/): the winter maximum snow depth by midwinter temperature.
+  - [避暑地は、まだ避暑地なのか](https://hotchpotch.github.io/japan-weather-dataset/analyses/hisho/): hot days and warm nights at 18 summer resorts, 1976–95 against 2016–25.
+  - [晴れなかった9月](https://hotchpotch.github.io/japan-weather-dataset/analyses/sept/): sunshine and precipitation of September 2026 in Kantō since 1961.

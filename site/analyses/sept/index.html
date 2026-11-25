@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>晴れなかった9月｜japan-weather-dataset</title>
+<meta name="description" content="2026年9月の関東は、日照時間が平年の37%で、1961年以降で最も少なかった。ただし1988年9月もほぼ同じで、「観測史上初」とは言えない。違いは雨の量で、降水量は1961年以降で最も多かった。">
+<link rel="canonical" href="https://hotchpotch.github.io/japan-weather-dataset/analyses/sept/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="japan-weather-dataset">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="晴れなかった9月">
+<meta property="og:description" content="2026年9月の関東は、日照時間が平年の37%で、1961年以降で最も少なかった。ただし1988年9月もほぼ同じで、「観測史上初」とは言えない。違いは雨の量で、降水量は1961年以降で最も多かった。">
+<meta property="og:url" content="https://hotchpotch.github.io/japan-weather-dataset/analyses/sept/">
+<meta property="og:image" content="https://hotchpotch.github.io/japan-weather-dataset/images/sept.webp">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="750">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<style>body{margin:0;padding:0}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: one reading column of an article, charts in cards; the series' type pairing, a rainy blue-grey ground */
+:root{
+  --bg:#eceff3; --surface:#f9fafb; --ink:#141c26; --ink2:#465263; --muted:#7a8592;
+  --grid:#d9dfe6; --axis:#b9c3cd; --line:rgba(20,28,38,.11); --mid:#e0e5eb;
+  --sun:#b07a12; --rain:#2f6f9e; --now:#c4502c; --past:#6b58a8; --base:#9aa6b2;
+  --font-display:"Kaisei Decol","Hiragino Mincho ProN","Yu Mincho",serif;
+  --font-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic UI","Noto Sans JP",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1318; --surface:#161c23; --ink:#e6ebf1; --ink2:#b0bbc7; --muted:#85919d;
+    --grid:#232c35; --axis:#36424e; --line:rgba(255,255,255,.10); --mid:#26303a;
+    --sun:#e2a83c; --rain:#6aaedb; --now:#ef8160; --past:#a594e0; --base:#5d6974; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1318; --surface:#161c23; --ink:#e6ebf1; --ink2:#b0bbc7; --muted:#85919d;
+  --grid:#232c35; --axis:#36424e; --line:rgba(255,255,255,.10); --mid:#26303a;
+  --sun:#e2a83c; --rain:#6aaedb; --now:#ef8160; --past:#a594e0; --base:#5d6974; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.8}
+.wrap{max-width:1000px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2{font-family:var(--font-display);font-weight:700;text-wrap:balance;margin:0;line-height:1.3}
+h1{font-size:clamp(36px,6.6vw,66px);letter-spacing:.01em}
+h2{font-size:clamp(23px,3.2vw,30px)}
+h3{font-size:16px;margin:0;font-weight:700;line-height:1.5}
+p{margin:0;max-width:40em}
+a{color:var(--rain)}
+.hero{padding-block:56px 8px}
+.kicker{font-size:13px;letter-spacing:.12em;color:var(--rain);font-weight:700}
+.hero h1{margin-top:10px}
+.dek{font-family:var(--font-display);font-size:clamp(19px,2.4vw,24px);line-height:1.7;margin-top:22px;max-width:34em}
+.byline{font-size:13px;color:var(--ink2);margin-top:14px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:26px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;border-top:4px solid var(--axis);min-width:0}
+.tile.sun{border-top-color:var(--sun)}.tile.rain{border-top-color:var(--rain)}.tile.past{border-top-color:var(--past)}
+.tile .t-k{font-size:13px;color:var(--ink2);font-weight:700}
+.tile .t-v{font-size:16px;line-height:1.45;margin-top:6px}
+.tile .t-v b{font-family:var(--font-display);font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
+.tile.sun .t-v b{color:var(--sun)}.tile.rain .t-v b{color:var(--rain)}.tile.past .t-v b{color:var(--past)}
+.tile .t-s{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+section{margin-top:60px;scroll-margin-top:56px}
+.chap{font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--now);letter-spacing:.1em;margin-bottom:4px}
+.chap::before{content:"第"}.chap::after{content:"章"}
+.pp{font-size:16.5px;line-height:1.95;margin-top:14px;max-width:40em}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 18px 12px;margin-top:20px;min-width:0}
+.card-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.card-head h3{margin-right:auto}
+.note{font-size:13px;color:var(--ink2);margin-top:10px;line-height:1.7;max-width:none}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;color:var(--ink2);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%}
+.lmean{display:inline-block;width:18px;height:0;border-top:2px dashed var(--ink2)}
+.chart{position:relative;width:100%}
+.chart svg{display:block;width:100%;overflow:visible}
+.pull{font-family:var(--font-display);font-size:clamp(20px,2.6vw,26px);line-height:1.6;border-left:4px solid var(--now);padding:4px 0 4px 18px;margin:24px 0 0;max-width:34em}
+.defs{margin:14px 0 0;padding:0;list-style:none;max-width:42em}
+.defs li{margin:8px 0;padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;font-size:15px;line-height:1.75}
+.keypts{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--rain);border-radius:12px;padding:14px 18px;margin-top:22px}
+.keypts h3{font-size:14px;color:var(--ink2)}
+.keypts ol{margin:6px 0 0;padding-left:1.3em;font-size:15.5px;line-height:1.8}
+.keypts li{margin:3px 0}
+.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin:28px 0 0;padding:8px 0;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.toc a{flex:none;font-size:13px;color:var(--ink2);text-decoration:none;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.toc a:hover{background:var(--mid)}
+.cmp{width:100%;border-collapse:collapse;font-size:14.5px}
+.cmp-wrap{overflow-x:auto}
+.cmp th,.cmp td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cmp th:first-child,.cmp td:first-child{text-align:left}
+.cmp thead th{font-size:12px;color:var(--muted);font-weight:500}
+.cmp td.w{font-weight:700}
+.cmp .c88{color:var(--past)}.cmp .c26{color:var(--now)}
+.verdict{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}
+.vcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;border-top:4px solid var(--axis);min-width:0}
+.vcard.a{border-top-color:var(--past)}.vcard.b{border-top-color:var(--now)}.vcard.c{border-top-color:var(--sun)}
+.vcard h3{font-family:var(--font-display);font-size:18px}
+.vcard ul{margin:8px 0 0;padding-left:1.1em;font-size:14.5px;line-height:1.75}
+.vcard li{margin:4px 0}
+.method{display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;font-size:14px}
+.method>div{min-width:0}
+.method h3{margin-top:12px}
+.method p{color:var(--ink2);max-width:none}
+#concl{border-top:1px solid var(--line);padding-top:28px}
+#tip{position:fixed;pointer-events:none;z-index:20;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 4px 18px rgba(0,0,0,.14);border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.5;min-width:120px;opacity:0;transition:opacity .08s}
+#tip .t{font-weight:700;margin-bottom:2px}
+#tip .r{display:flex;justify-content:space-between;gap:14px;font-variant-numeric:tabular-nums}
+#tip .r span:first-child{color:var(--ink2)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+footer{margin-top:56px;padding-block:28px 48px;border-top:1px solid var(--line);font-size:13px;color:var(--ink2)}
+svg text{font-family:var(--font-body)}
+@media (prefers-reduced-motion: reduce){#tip{transition:none}}
+@media (max-width:820px){.tiles,.verdict,.method,.grid2{grid-template-columns:1fr}}
+</style>
+<style>
+.jwd-bar{all:initial;display:block;box-sizing:border-box;width:100%;padding:9px 16px;background:#13263a;color:#e8eef3;
+  font:500 13px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;position:relative;z-index:50}
+.jwd-bar *{box-sizing:border-box}
+.jwd-bar .jwd-in{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;max-width:1120px;margin:0 auto}
+.jwd-bar a{color:#e8eef3;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.jwd-bar a:hover{text-decoration:underline}
+.jwd-bar a:focus-visible{outline:2px solid #86b6ef;outline-offset:2px;border-radius:2px}
+.jwd-bar b{font-weight:700}
+.jwd-bar small{color:#9fb2c3;font-size:12px}
+</style>
+</head>
+<body>
+<nav class="jwd-bar" aria-label="サイト"><div class="jwd-in"><a href="../../"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg><b>japan-weather-dataset</b></a><small>このデータを使った分析例</small></div></nav>
+<div id="tip" role="status" aria-live="polite"></div>
+<div class="wrap">
+<header class="hero">
+  <div class="kicker">気象庁の観測データで検証する</div>
+  <h1>晴れなかった<br>9月</h1>
+  <p class="dek">2026年9月の関東は、日照時間が平年の4割に届かず、1961年以降で最も少なかった。ただし「観測史上初」とは言いにくい。38年前の1988年9月にも、ほぼ同じだけ日が差さなかったからだ。二つの月を分けたのは、雨の量だった。</p>
+  <div class="tiles">
+    <div class="tile sun"><div class="t-k">日照時間（7地点の平均）</div><div class="t-v">平年の<br><b>37%</b></div><div class="t-s">50.1時間。平年は135時間。1988年の50.4時間とほぼ同じ</div></div>
+    <div class="tile rain"><div class="t-k">降水量（7地点の平均）</div><div class="t-v">平年の<br><b>2.6倍</b></div><div class="t-s">552mm。それまでの最多（1982年の377mm）を大きく上回った</div></div>
+    <div class="tile past"><div class="t-k">同じくらい暗かった9月</div><div class="t-v">1961年以降で<br><b>1988年</b>だけ</div><div class="t-s">次に少ない1971年でも平年の65%。二つの年だけが際立って少ない</div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>9月の30日間：日照時間（上）と降水量（下）</h3>
+      <div class="legend"><span><i class="sw" style="background:var(--sun)"></i>日照時間</span><span><i class="sw" style="background:var(--rain)"></i>降水量</span><span><i class="lmean"></i>平年の1日あたりの日照（4.5時間）</span></div></div>
+    <div class="chart" id="cal"></div>
+    <p class="note">関東の気象台7地点（宇都宮・前橋・熊谷・水戸・銚子・東京・横浜）の平均。棒にマウスを重ねると値が表示される。平年の9月には、日照が6時間以上の日が11〜12日ある。2026年も1988年も、それが3日ほどしかなかった。</p>
+  </div>
+  <p class="byline">データ：気象庁の日別値（日照時間・降水量・雲量・天気概況）。平年は1991〜2020年の平均。データは2026年11月10日まで（9月は確定扱いの年ファイル）。</p>
+</header>
+
+<div class="keypts"><h3>この記事の要点</h3><ol>
+  <li>2026年9月の関東の日照時間は平年の37%で、1961年以降の66年間でいちばん少ない。ただし1988年9月も37%で、差はわずか0.3時間しかない。</li>
+  <li>3番目に少ない1971年でも平年の65%あり、この二つの年だけが際立って少ない。</li>
+  <li>2026年が1988年を大きく上回るのは雨だ。降水量は平年の2.6倍、1mm以上の雨の日は20.7日で、どちらも1961年以降で最も多い。</li>
+  <li>晴れ間の少なさでは1988年が上回る。東京の天気概況に「晴」が入った日は1日だけ（2026年は10日）で、日照の少ない日が続いた期間も、1988年の14日に対して2026年は11日だった。</li>
+  <li>127年分の記録がある銚子では、2026年9月が最少、1988年が2位だった。</li>
+</ol></div>
+
+<nav class="toc" aria-label="目次"><a href="#intro">はじめに</a><a href="#years">1 66年の中で</a><a href="#stations">2 地点ごと</a><a href="#rain">3 雨の多さ</a><a href="#dark">4 1988年の暗さ</a><a href="#summer">5 夏から秋へ</a><a href="#long">6 銚子の127年</a><a href="#concl">7 結論</a><a href="#method">方法</a></nav>
+
+<section id="intro">
+  <h2>「ずっと曇りか雨だった」を、記録で確かめる</h2>
+  <p class="pp">2026年9月の関東では、曇りや雨の日が続いた。これは記録の上でも珍しいことなのか。それとも、似たような9月が過去にもあったのか。</p>
+  <p class="pp">曇りや雨がどれだけ続いたかは、気象庁の観測記録からいくつかの方法で測ることができる。この記事では、主に次の3つを使う。</p>
+  <ul class="defs">
+    <li><b>日照時間</b>：直射日光が地面に届いた時間。曇りや雨の日はほとんど0になる。晴れていたかどうかを測る、最も客観的な目安だ。</li>
+    <li><b>降水量と雨の日</b>：月の降水量の合計と、1mm以上降った日の数。雨がちだったかどうかの目安になる。</li>
+    <li><b>雲量と天気概況</b>：空を雲が覆う割合（0〜10）と、気象台が毎日記録する「曇時々雨」のような天気の要約。関東では、東京だけが今も記録を続けている。</li>
+  </ul>
+  <p class="pp">比べる地点は、関東の気象台のうち1961年から日照時間の記録がそろう7地点（宇都宮・前橋・熊谷・水戸・銚子・東京・横浜）。千葉は記録が1966年からなので、地点ごとの比較にだけ加えた。</p>
+</section>
+
+<section id="years">
+  <div class="chap">1</div>
+  <h2>66年間で、際立って暗い二つの9月</h2>
+  <p class="pp">1961年から2026年までの9月を、日照時間の平年比で並べてみる。66年のうち7割ほどの年は、平年の80〜130%の間に収まる。そこから大きく下に外れているのが、2026年と1988年だ。どちらも平年の37%で、時間にすると2026年が50.1時間、1988年が50.4時間。差はわずか0.3時間で、どちらが最も暗かったとは言い切れない。</p>
+  <div class="card">
+    <div class="card-head"><h3>関東の9月の日照時間（平年比、7地点の平均）</h3>
+      <div class="legend"><span><i class="sw" style="background:var(--now)"></i>2026年</span><span><i class="sw" style="background:var(--past)"></i>1988年</span><span><i class="sw" style="background:var(--base)"></i>その他の年</span></div></div>
+    <div class="chart" id="yr"></div>
+    <p class="note">2005年・2007年・2023年は、7地点のうち1地点で、気象庁が「資料不足値」の印を付けた日が3日以上あるため除いた（宇都宮の2005年に5日、横浜の2007年に6日、東京の2023年に欠測2日と資料不足値1日）。1時間ごとの記録を見ると、宇都宮と横浜では昼間の一部の時間（横浜の4日は日中のほぼすべて）、東京では9日未明から11日14時まで日照の観測が途切れていた。気象庁は理由を公表していない。値そのものは記録されており、資料不足値も含めて計算すると、平年比は2005年が115%、2007年が95%、2023年が119%になる。どの年も暗い9月ではない。</p>
+  </div>
+  <p class="pp">3番目は1971年の65%、4番目は1993年の67%。平年の3分の2ほど照れば、それだけで暗い9月の上位に入る。2026年と1988年は、さらにその6割ほどしか照らなかった。66年間に2回しかない、桁違いの暗さだ。</p>
+  <p class="pull">「観測史上初」ではない。それでも、66年間に2回しかない9月だった。</p>
+</section>
+
+<section id="stations">
+  <div class="chap">2</div>
+  <h2>どの地点でも、2026年か1988年が最少</h2>
+  <p class="pp">地点ごとに見ても、結論は変わらない。8地点のすべてで、1961年以降（千葉は1966年以降）に9月の日照時間が最も少なかったのは、2026年か1988年のどちらかだ。前橋と銚子では2026年が最少だった。残りの6地点では1988年が最少で、2026年はそれに次ぐ2番目だった。</p>
+  <div class="card">
+    <div class="card-head"><h3>9月の日照時間：平年・1988年・2026年（時間）</h3>
+      <div class="legend"><span><i class="dot" style="border:2px solid var(--ink2);background:var(--surface)"></i>平年</span><span><i class="dot" style="background:var(--past)"></i>1988年</span><span><i class="dot" style="background:var(--now)"></i>2026年</span></div></div>
+    <div class="chart" id="db"></div>
+    <p class="note">平年は1991〜2020年の平均。どの地点でも、二つの年は平年の3〜4割のところに並んでいる。</p>
+  </div>
+  <p class="pp">太平洋に面した銚子では、2026年の49.8時間は平年（159時間）の31%にとどまり、8地点の中で平年との差が最も大きかった。1988年の銚子は69.9時間で、ほかの地点ほど暗くはなかった。反対に東京と横浜では、1988年のほうが日照が6〜7時間少ない。</p>
+</section>
+
+<section id="rain">
+  <div class="chap">3</div>
+  <h2>2026年が上回るのは、雨の量</h2>
+  <p class="pp">暗さは互角でも、雨の降り方はまったく違う。7地点の平均で、2026年9月の降水量は552mm。平年（214mm）の2.6倍で、それまでの最多だった1982年（377mm）を170mm以上も上回った。1988年は341mmだった。</p>
+  <div class="card">
+    <div class="card-head"><h3>9月の日照（平年比）と降水量（1年が1点）</h3>
+      <div class="legend"><span><i class="dot" style="background:var(--now)"></i>2026年</span><span><i class="dot" style="background:var(--past)"></i>1988年</span><span><i class="dot" style="background:var(--base)"></i>その他の年</span></div></div>
+    <div class="chart" id="sc"></div>
+    <p class="note">7地点の平均、1961〜2026年（3年を除く63年）。左上にあるほど、暗くて雨の多い9月だ。</p>
+  </div>
+  <p class="pp">2026年だけが、左上の隅にぽつんと離れている。1988年は横軸では同じ位置にあるが、降水量はそれほど多くない。2026年は6〜9日と20〜21日に大きな雨の山があり、東京では1日に100mmを超える雨が2回降った（20日に103.5mm、21日に156mm）。月の合計は、東京で697mm、横浜で786mm、千葉で771mmに達した。</p>
+  <div class="card">
+    <div class="card-head"><h3>地点ごとの9月の降水量（mm）</h3>
+      <div class="legend"><span><i class="dot" style="background:var(--past)"></i>1988年</span><span><i class="dot" style="background:var(--now)"></i>2026年</span></div></div>
+    <div class="chart" id="dbp"></div>
+    <p class="note">地点ごとの平年値は示していない（7地点平均の平年値は214mm）。前橋と熊谷では、2026年の雨は1988年並みかそれ以下だった。雨が極端に多かったのは、海に近い東部・南部の地点だ。</p>
+  </div>
+  <p class="pp">雨の日も多かった。1mm以上の雨が降った日は、7地点の平均で20.7日。平年は11.4日なので、ほぼ2倍だ。1988年（18.9日）を上回り、1961年以降で最も多い。東京の天気概況に「雨」の字が入った日も、30日のうち22日あった（1967年以降で最多）。</p>
+</section>
+
+<section id="dark">
+  <div class="chap">4</div>
+  <h2>晴れ間のなさでは、1988年が上</h2>
+  <p class="pp">では、1988年は雨が少なかっただけで、2026年と同じような9月だったのか。日ごとに見ていくと、暗さの中身が少し違う。</p>
+  <div class="card cmp-wrap">
+    <table class="cmp">
+      <thead><tr><th>項目（「東京」の行は東京のみ、ほかは7地点の平均）</th><th class="c88">1988年</th><th class="c26">2026年</th><th>平年</th></tr></thead>
+      <tbody>
+        <tr><td>日照時間</td><td>50.4 時間</td><td>50.1 時間</td><td>135.3 時間</td></tr>
+        <tr><td>6時間以上照った日</td><td>3.4 日</td><td>3.3 日</td><td>11.5 日</td></tr>
+        <tr><td>日照1時間未満の日</td><td>18.1 日</td><td class="w c26">19.4 日</td><td>9.3 日</td></tr>
+        <tr><td>日照3時間未満が続いた最長</td><td class="w c88">14 日（17〜30日）</td><td>11 日（3〜13日）</td><td>—</td></tr>
+        <tr><td>降水量</td><td>341 mm</td><td class="w c26">552 mm</td><td>214 mm</td></tr>
+        <tr><td>1mm以上の雨の日</td><td>18.9 日</td><td class="w c26">20.7 日</td><td>11.4 日</td></tr>
+        <tr><td>東京：平均雲量（0〜10）</td><td>9.29</td><td class="w c26">9.48</td><td>7.81</td></tr>
+        <tr><td>東京：天気概況に「晴」が入った日</td><td class="w c88">1 日</td><td>10 日</td><td>—</td></tr>
+        <tr><td>東京：天気概況に「雨」が入った日</td><td>19 日</td><td class="w c26">22 日</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <p class="note">太字は、二つの年のうち曇りや雨の傾向が強いほうの値。「最長」は、7地点平均の日照が3時間未満の日が続いた最も長い日数。</p>
+  </div>
+  <p class="pp">2026年には、14日、22日、24日のように、よく晴れた日がときどき挟まった。東京では天気概況に「晴」が入った日が10日あり、晴れ間がまったくなかったわけではない。それでも東京の平均雲量は9.48で、1961年以降の9月で最も多かった。</p>
+  <div class="card">
+    <div class="card-head"><h3>東京の9月の平均雲量（0〜10）</h3>
+      <div class="legend"><span><i class="sw" style="background:var(--now)"></i>2026年</span><span><i class="sw" style="background:var(--past)"></i>1988年</span></div></div>
+    <div class="chart" id="cc"></div>
+    <p class="note">雲量は目で見て観測する。関東のほかの地点では、この観測は2019年までに終わり、東京だけが現在も続けている。</p>
+  </div>
+  <p class="pp">一方の1988年は、晴れ間の少なさで上回る。東京の天気概況に「晴」の字が入ったのは、30日のうちわずか1日だった。月の後半、17日から30日までの14日間は、7地点平均の日照が一度も3時間に届かなかった。雨は2026年ほど多くなかったが、どんよりした空が切れ目なく続いた月だった。</p>
+</section>
+
+<section id="summer">
+  <div class="chap">5</div>
+  <h2>夏から続いた1988年、9月に急に崩れた2026年</h2>
+  <p class="pp">二つの年は、9月までの経過も違う。1988年は夏から日照が少なく、7月の日照は平年の42%しかなかった。9月の暗さは、夏の天候不順の続きだった。2026年は7月が平年の110%とよく晴れ、8月も平年並み（91%）だった。9月に入って急に崩れ、10月には両年とも平年を上回るまで回復している。</p>
+  <div class="card">
+    <div class="card-head"><h3>6〜10月の日照時間（平年比、7地点の平均）</h3>
+      <div class="legend"><span><i class="sw" style="background:var(--past)"></i>1988年</span><span><i class="sw" style="background:var(--now)"></i>2026年</span><span><i class="lmean"></i>平年（100%）</span></div></div>
+    <div class="chart" id="mo"></div>
+  </div>
+</section>
+
+<section id="long">
+  <div class="chap">6</div>
+  <h2>127年の記録をもつ銚子では、2026年が最少</h2>
+  <p class="pp">1961年より前はどうだったのか。このデータで、1961年より前から9月の日照時間がそろっている関東の地点は銚子だけだ。1899年からの127年分を並べると、2026年の49.8時間が最も少なく、1988年の69.9時間がそれに続く。1961年より前に、これより暗い9月はなかった。3番目は1921年の89.8時間で、2026年より40時間も多い。</p>
+  <div class="card">
+    <div class="card-head"><h3>銚子の9月の日照時間（時間、1899〜2026年）</h3>
+      <div class="legend"><span><i class="sw" style="background:var(--now)"></i>2026年</span><span><i class="sw" style="background:var(--past)"></i>1988年</span><span><i class="sw" style="background:var(--base)"></i>その他の年</span></div></div>
+    <div class="chart" id="ch"></div>
+    <p class="note">1985年以前は別の種類の日照計で測っており、1986年以降と完全には比べられない（方法と注意点）。値が28日分そろわない年は除いた。</p>
+  </div>
+  <p class="pp">ただし、銚子は太平洋に突き出た岬の街で、関東全体を代表するわけではない。東京など、ほかの地点の1961年より前の日照は、このデータには含まれていない。このデータで「関東の観測史上」として比べられるのは、ほとんどの地点で1961年以降に限られる。</p>
+</section>
+
+<section id="concl">
+  <div class="chap">7</div>
+  <h2>2026年9月は「観測史上初」だったか</h2>
+  <div class="verdict">
+    <div class="vcard a"><h3>前例がある</h3><ul>
+      <li>日照の少なさは、1988年9月とほぼ同じ（どちらも平年の37%）。</li>
+      <li>6時間以上照った日の少なさも同じ（3.3日と3.4日）。</li>
+      <li>8地点のうち6地点では、1988年のほうが日照が少なかった。</li>
+      <li>晴れ間の少なさと、暗い日が続いた長さでは1988年が上回る。</li>
+    </ul></div>
+    <div class="vcard b"><h3>1961年以降で初めて</h3><ul>
+      <li>降水量は平年の2.6倍で、それまでの最多を170mm以上上回った。</li>
+      <li>1mm以上の雨の日（20.7日）と、日照1時間未満の日（19.4日）が最も多かった。</li>
+      <li>東京の平均雲量（9.48）と、天気概況に「雨」が入った日（22日）が最も多かった。</li>
+      <li>銚子では、1899年以降の127年間で日照が最も少なかった。</li>
+    </ul></div>
+    <div class="vcard c"><h3>このデータでは分からない</h3><ul>
+      <li>1961年より前の、東京など銚子以外の地点の日照。</li>
+      <li>曇りや雨が続いた原因（前線、台風、気圧配置など）。観測値からわかるのは何が起きたかまでで、なぜ起きたかはわからない。</li>
+      <li>気象庁が後日に公表する訂正の影響。9月の値は確定扱いだが、訂正はまだ反映していない。</li>
+    </ul></div>
+  </div>
+  <p class="pp">「2026年9月の関東は、ずっと曇りや雨だった」という印象は、記録の上でも裏づけられる。日照時間は平年の4割に届かず、1961年以降で最も少なかった。ただし「観測史上初」とまでは言えない。1988年9月にも、ほぼ同じだけ日が差さなかったからだ。二つの月を分けるのは雨である。1988年は、晴れ間のない曇り空が長く続いた月だった。2026年は、記録的な大雨を何度も伴い、空が最も厚く雲に覆われた月だった。日照の少なさだけなら前例がある。しかし、これほど雨が多く、しかも日が差さなかった9月は、1961年以降の66年間で初めてだった。</p>
+</section>
+
+<section id="method">
+  <h2>方法と注意点</h2>
+  <div class="method">
+    <div>
+      <h3>データ</h3><p>気象庁「過去の気象データ・ダウンロード」の日別値を集めたデータセット（japan-weather、2026年11月10日まで）を使った。品質情報が「正常」と「準正常」の値だけを使い、日照・降水が「現象なし」の日は0とした。2026年9月は年ファイルに統合済み（確定扱い）だが、気象庁が後日公表する訂正は反映していない。</p>
+      <h3>地点</h3><p>関東の気象台のうち、1961年から9月の日照時間がそろう7地点（宇都宮・前橋・熊谷・水戸・銚子・東京・横浜）を平均に使った。千葉（1966年〜）は地点ごとの比較にだけ含めた。島しょ部（大島・八丈島など）、山間部の奥日光、秩父・つくば・館山・勝浦は含めていない。</p>
+      <h3>有効な月</h3><p>9月の30日のうち、品質が「正常」か「準正常」の値が28日以上ある月だけを使った。7地点の平均は、7地点すべてが有効な年（66年のうち63年）で計算した。除いた3年について気象庁の「過去の気象データ・ダウンロード」に直接問い合わせたところ、同じ日に同じ品質情報（資料不足値・欠測）が付いていた。データセットの取りこぼしではない。</p>
+    </div>
+    <div>
+      <h3>平年値</h3><p>1991〜2020年の9月の平均を、このデータから計算した。気象庁の公表する平年値とは細かい点で違うことがある。平年比は地点ごとに求めてから7地点で平均した。</p>
+      <h3>日照計の変更</h3><p>気象台の日照計は1986〜87年に別の方式に切り替わった（均質番号の変化点として記録がある）。1961年以降の比較では1988年も2026年も切り替え後なので問題ないが、銚子の1985年以前の値は厳密には同じ尺度ではない。東京は2007年11月にも変化点がある。</p>
+      <h3>雲量と天気概況</h3><p>雲量は目視の観測で、東京以外の地点では2019年までに終わっている。天気概況（昼）の文字列に「晴」「雨」が含まれる日を数えた。天気概況の記録は1967年から。</p>
+      <h3>限界</h3><p>観測値は何が起きたかを示すが、原因（気圧配置、前線、台風、海面水温など）は示さない。1961年より前の東京などの日照は、このデータでは取れないため比べていない。</p>
+    </div>
+  </div>
+</section>
+<footer>出典：気象庁ホームページ「過去の気象データ・ダウンロード」（<a href="https://www.data.jma.go.jp/risk/obsdl/">https://www.data.jma.go.jp/risk/obsdl/</a>）をもとに Yuichi Tateno (@hotchpotch) が加工して作成。集計と判定はこの記事独自のもので、気象庁が作成したものではありません。データセット：<a href="https://huggingface.co/datasets/hotchpotch/japan-weather">hotchpotch/japan-weather</a>（2026年11月11日更新分）。</footer>
+</div>
+
+<script>
+const D = {"reg": [{"y": 1961, "sun": 184.7, "pct": 136.0, "d6h": 15.9, "dlt1": 2.6, "rain1": 7.4, "pr": 73.0}, {"y": 1962, "sun": 175.6, "pct": 130.0, "d6h": 16.7, "dlt1": 4.7, "rain1": 3.6, "pr": 32.0}, {"y": 1963, "sun": 128.3, "pct": 95.0, "d6h": 11.4, "dlt1": 10.1, "rain1": 7.4, "pr": 106.0}, {"y": 1964, "sun": 92.3, "pct": 68.0, "d6h": 7.1, "dlt1": 14.1, "rain1": 12.6, "pr": 149.0}, {"y": 1965, "sun": 132.3, "pct": 98.0, "d6h": 11.6, "dlt1": 9.7, "rain1": 12.0, "pr": 217.0}, {"y": 1966, "sun": 121.1, "pct": 90.0, "d6h": 9.6, "dlt1": 9.3, "rain1": 13.0, "pr": 276.0}, {"y": 1967, "sun": 113.6, "pct": 83.0, "d6h": 9.3, "dlt1": 11.7, "rain1": 13.3, "pr": 222.0}, {"y": 1968, "sun": 137.3, "pct": 102.0, "d6h": 12.6, "dlt1": 9.4, "rain1": 10.0, "pr": 85.0}, {"y": 1969, "sun": 137.8, "pct": 102.0, "d6h": 11.7, "dlt1": 8.7, "rain1": 11.1, "pr": 168.0}, {"y": 1970, "sun": 106.9, "pct": 78.0, "d6h": 9.1, "dlt1": 10.9, "rain1": 10.4, "pr": 110.0}, {"y": 1971, "sun": 88.5, "pct": 65.0, "d6h": 6.6, "dlt1": 13.9, "rain1": 14.3, "pr": 283.0}, {"y": 1972, "sun": 177.3, "pct": 131.0, "d6h": 17.4, "dlt1": 5.1, "rain1": 11.3, "pr": 241.0}, {"y": 1973, "sun": 154.4, "pct": 114.0, "d6h": 13.9, "dlt1": 6.9, "rain1": 11.7, "pr": 150.0}, {"y": 1974, "sun": 128.3, "pct": 95.0, "d6h": 11.0, "dlt1": 9.3, "rain1": 12.9, "pr": 244.0}, {"y": 1975, "sun": 194.4, "pct": 143.0, "d6h": 18.7, "dlt1": 4.9, "rain1": 7.3, "pr": 138.0}, {"y": 1976, "sun": 145.2, "pct": 107.0, "d6h": 12.9, "dlt1": 9.0, "rain1": 12.6, "pr": 226.0}, {"y": 1977, "sun": 136.1, "pct": 100.0, "d6h": 11.1, "dlt1": 7.9, "rain1": 10.7, "pr": 225.0}, {"y": 1978, "sun": 106.3, "pct": 78.0, "d6h": 9.1, "dlt1": 13.0, "rain1": 13.3, "pr": 146.0}, {"y": 1979, "sun": 131.9, "pct": 97.0, "d6h": 11.9, "dlt1": 9.1, "rain1": 10.4, "pr": 128.0}, {"y": 1980, "sun": 126.1, "pct": 93.0, "d6h": 11.4, "dlt1": 11.3, "rain1": 10.4, "pr": 158.0}, {"y": 1981, "sun": 140.7, "pct": 103.0, "d6h": 12.0, "dlt1": 8.7, "rain1": 11.9, "pr": 147.0}, {"y": 1982, "sun": 119.2, "pct": 88.0, "d6h": 9.3, "dlt1": 12.3, "rain1": 12.7, "pr": 377.0}, {"y": 1983, "sun": 104.6, "pct": 77.0, "d6h": 8.3, "dlt1": 12.6, "rain1": 15.1, "pr": 254.0}, {"y": 1984, "sun": 166.7, "pct": 123.0, "d6h": 14.7, "dlt1": 5.9, "rain1": 10.0, "pr": 66.0}, {"y": 1985, "sun": 120.8, "pct": 89.0, "d6h": 10.1, "dlt1": 10.9, "rain1": 12.1, "pr": 132.0}, {"y": 1986, "sun": 138.1, "pct": 102.0, "d6h": 12.4, "dlt1": 9.7, "rain1": 12.3, "pr": 168.0}, {"y": 1987, "sun": 115.9, "pct": 85.0, "d6h": 9.9, "dlt1": 10.1, "rain1": 13.7, "pr": 274.0}, {"y": 1988, "sun": 50.4, "pct": 37.0, "d6h": 3.4, "dlt1": 18.1, "rain1": 18.9, "pr": 341.0}, {"y": 1989, "sun": 125.5, "pct": 91.0, "d6h": 10.1, "dlt1": 9.1, "rain1": 12.4, "pr": 189.0}, {"y": 1990, "sun": 139.4, "pct": 102.0, "d6h": 12.0, "dlt1": 9.6, "rain1": 11.7, "pr": 307.0}, {"y": 1991, "sun": 93.8, "pct": 69.0, "d6h": 7.7, "dlt1": 14.1, "rain1": 14.4, "pr": 370.0}, {"y": 1992, "sun": 171.5, "pct": 126.0, "d6h": 15.3, "dlt1": 5.7, "rain1": 6.9, "pr": 108.0}, {"y": 1993, "sun": 91.8, "pct": 67.0, "d6h": 7.3, "dlt1": 14.1, "rain1": 11.7, "pr": 189.0}, {"y": 1994, "sun": 131.4, "pct": 97.0, "d6h": 10.4, "dlt1": 9.6, "rain1": 16.9, "pr": 293.0}, {"y": 1995, "sun": 140.1, "pct": 103.0, "d6h": 12.6, "dlt1": 7.1, "rain1": 5.4, "pr": 187.0}, {"y": 1996, "sun": 147.2, "pct": 108.0, "d6h": 12.6, "dlt1": 9.0, "rain1": 10.4, "pr": 321.0}, {"y": 1997, "sun": 101.3, "pct": 74.0, "d6h": 7.7, "dlt1": 12.1, "rain1": 15.0, "pr": 195.0}, {"y": 1998, "sun": 96.5, "pct": 71.0, "d6h": 7.6, "dlt1": 13.3, "rain1": 13.3, "pr": 267.0}, {"y": 1999, "sun": 137.2, "pct": 101.0, "d6h": 11.6, "dlt1": 7.6, "rain1": 9.7, "pr": 129.0}, {"y": 2000, "sun": 135.8, "pct": 100.0, "d6h": 11.9, "dlt1": 8.3, "rain1": 13.1, "pr": 260.0}, {"y": 2001, "sun": 124.2, "pct": 91.0, "d6h": 10.6, "dlt1": 11.7, "rain1": 11.0, "pr": 175.0}, {"y": 2002, "sun": 127.4, "pct": 94.0, "d6h": 11.1, "dlt1": 13.1, "rain1": 12.3, "pr": 215.0}, {"y": 2003, "sun": 159.4, "pct": 117.0, "d6h": 14.3, "dlt1": 7.6, "rain1": 7.6, "pr": 150.0}, {"y": 2004, "sun": 137.9, "pct": 101.0, "d6h": 11.6, "dlt1": 8.6, "rain1": 11.0, "pr": 195.0}, {"y": 2006, "sun": 122.4, "pct": 90.0, "d6h": 10.4, "dlt1": 11.4, "rain1": 10.6, "pr": 168.0}, {"y": 2008, "sun": 132.1, "pct": 98.0, "d6h": 10.6, "dlt1": 9.1, "rain1": 12.3, "pr": 203.0}, {"y": 2009, "sun": 145.1, "pct": 107.0, "d6h": 13.4, "dlt1": 9.1, "rain1": 4.1, "pr": 30.0}, {"y": 2010, "sun": 170.1, "pct": 125.0, "d6h": 16.1, "dlt1": 7.3, "rain1": 11.1, "pr": 303.0}, {"y": 2011, "sun": 181.5, "pct": 134.0, "d6h": 15.4, "dlt1": 4.4, "rain1": 9.9, "pr": 265.0}, {"y": 2012, "sun": 168.8, "pct": 124.0, "d6h": 14.4, "dlt1": 3.6, "rain1": 14.1, "pr": 224.0}, {"y": 2013, "sun": 171.8, "pct": 126.0, "d6h": 15.1, "dlt1": 6.6, "rain1": 10.7, "pr": 205.0}, {"y": 2014, "sun": 165.1, "pct": 122.0, "d6h": 14.4, "dlt1": 6.1, "rain1": 7.6, "pr": 102.0}, {"y": 2015, "sun": 120.3, "pct": 88.0, "d6h": 11.3, "dlt1": 11.7, "rain1": 13.9, "pr": 340.0}, {"y": 2016, "sun": 99.6, "pct": 73.0, "d6h": 7.3, "dlt1": 13.0, "rain1": 14.4, "pr": 286.0}, {"y": 2017, "sun": 150.9, "pct": 112.0, "d6h": 13.9, "dlt1": 8.1, "rain1": 11.9, "pr": 177.0}, {"y": 2018, "sun": 94.1, "pct": 69.0, "d6h": 6.9, "dlt1": 12.3, "rain1": 17.9, "pr": 304.0}, {"y": 2019, "sun": 155.1, "pct": 114.0, "d6h": 13.4, "dlt1": 6.1, "rain1": 8.4, "pr": 177.0}, {"y": 2020, "sun": 116.4, "pct": 85.0, "d6h": 7.7, "dlt1": 8.7, "rain1": 14.7, "pr": 147.0}, {"y": 2021, "sun": 118.9, "pct": 87.0, "d6h": 9.7, "dlt1": 11.7, "rain1": 11.6, "pr": 157.0}, {"y": 2022, "sun": 135.7, "pct": 100.0, "d6h": 11.4, "dlt1": 8.7, "rain1": 11.0, "pr": 251.0}, {"y": 2024, "sun": 163.5, "pct": 120.0, "d6h": 13.9, "dlt1": 6.4, "rain1": 10.1, "pr": 131.0}, {"y": 2025, "sun": 170.9, "pct": 126.0, "d6h": 14.9, "dlt1": 4.6, "rain1": 9.3, "pr": 170.0}, {"y": 2026, "sun": 50.1, "pct": 37.0, "d6h": 3.3, "dlt1": 19.4, "rain1": 20.7, "pr": 552.0}], "prrank": [{"y": 2026, "pr": 552.0}, {"y": 1982, "pr": 377.0}, {"y": 1991, "pr": 370.0}, {"y": 1988, "pr": 341.0}, {"y": 2015, "pr": 340.0}], "rain1rank": [{"y": 2026, "rain1": 20.7}, {"y": 1988, "rain1": 18.9}, {"y": 2018, "rain1": 17.9}, {"y": 1994, "rain1": 16.9}, {"y": 1983, "rain1": 15.1}], "daily": [{"y": 1988, "d": 1, "sun": 7.9, "pr": 12.1, "k": 7}, {"y": 1988, "d": 2, "sun": 2.29, "pr": 10.0, "k": 7}, {"y": 1988, "d": 3, "sun": 3.0, "pr": 4.8, "k": 7}, {"y": 1988, "d": 4, "sun": 3.77, "pr": 3.0, "k": 7}, {"y": 1988, "d": 5, "sun": 0.3, "pr": 0.1, "k": 7}, {"y": 1988, "d": 6, "sun": 0.0, "pr": 27.3, "k": 7}, {"y": 1988, "d": 7, "sun": 0.69, "pr": 8.4, "k": 7}, {"y": 1988, "d": 8, "sun": 0.26, "pr": 14.1, "k": 7}, {"y": 1988, "d": 9, "sun": 8.51, "pr": 3.9, "k": 7}, {"y": 1988, "d": 10, "sun": 0.49, "pr": 6.0, "k": 7}, {"y": 1988, "d": 11, "sun": 0.46, "pr": 20.6, "k": 7}, {"y": 1988, "d": 12, "sun": 0.93, "pr": 7.1, "k": 7}, {"y": 1988, "d": 13, "sun": 4.61, "pr": 0.0, "k": 7}, {"y": 1988, "d": 14, "sun": 4.49, "pr": 2.6, "k": 7}, {"y": 1988, "d": 15, "sun": 0.11, "pr": 13.5, "k": 7}, {"y": 1988, "d": 16, "sun": 5.26, "pr": 4.1, "k": 7}, {"y": 1988, "d": 17, "sun": 0.04, "pr": 5.1, "k": 7}, {"y": 1988, "d": 18, "sun": 1.2, "pr": 0.1, "k": 7}, {"y": 1988, "d": 19, "sun": 1.41, "pr": 0.0, "k": 7}, {"y": 1988, "d": 20, "sun": 1.77, "pr": 5.4, "k": 7}, {"y": 1988, "d": 21, "sun": 2.06, "pr": 1.3, "k": 7}, {"y": 1988, "d": 22, "sun": 0.21, "pr": 10.5, "k": 7}, {"y": 1988, "d": 23, "sun": 0.13, "pr": 6.7, "k": 7}, {"y": 1988, "d": 24, "sun": 0.0, "pr": 31.8, "k": 7}, {"y": 1988, "d": 25, "sun": 0.0, "pr": 78.1, "k": 7}, {"y": 1988, "d": 26, "sun": 0.04, "pr": 2.4, "k": 7}, {"y": 1988, "d": 27, "sun": 0.0, "pr": 31.1, "k": 7}, {"y": 1988, "d": 28, "sun": 0.0, "pr": 25.1, "k": 7}, {"y": 1988, "d": 29, "sun": 0.44, "pr": 0.2, "k": 7}, {"y": 1988, "d": 30, "sun": 0.0, "pr": 5.1, "k": 7}, {"y": 2026, "d": 1, "sun": 0.41, "pr": 1.1, "k": 7}, {"y": 2026, "d": 2, "sun": 4.51, "pr": 0.4, "k": 7}, {"y": 2026, "d": 3, "sun": 0.26, "pr": 3.9, "k": 7}, {"y": 2026, "d": 4, "sun": 0.01, "pr": 3.6, "k": 7}, {"y": 2026, "d": 5, "sun": 2.46, "pr": 10.6, "k": 7}, {"y": 2026, "d": 6, "sun": 0.0, "pr": 50.9, "k": 7}, {"y": 2026, "d": 7, "sun": 0.09, "pr": 84.3, "k": 7}, {"y": 2026, "d": 8, "sun": 0.77, "pr": 30.4, "k": 7}, {"y": 2026, "d": 9, "sun": 2.13, "pr": 37.2, "k": 7}, {"y": 2026, "d": 10, "sun": 0.0, "pr": 5.4, "k": 7}, {"y": 2026, "d": 11, "sun": 0.0, "pr": 23.8, "k": 7}, {"y": 2026, "d": 12, "sun": 0.5, "pr": 6.6, "k": 7}, {"y": 2026, "d": 13, "sun": 1.24, "pr": 0.9, "k": 7}, {"y": 2026, "d": 14, "sun": 7.24, "pr": 0.1, "k": 7}, {"y": 2026, "d": 15, "sun": 0.37, "pr": 10.1, "k": 7}, {"y": 2026, "d": 16, "sun": 0.0, "pr": 23.2, "k": 7}, {"y": 2026, "d": 17, "sun": 3.93, "pr": 3.1, "k": 7}, {"y": 2026, "d": 18, "sun": 3.56, "pr": 0.0, "k": 7}, {"y": 2026, "d": 19, "sun": 1.23, "pr": 1.7, "k": 7}, {"y": 2026, "d": 20, "sun": 0.0, "pr": 59.2, "k": 7}, {"y": 2026, "d": 21, "sun": 0.0, "pr": 117.1, "k": 7}, {"y": 2026, "d": 22, "sun": 8.17, "pr": 0.0, "k": 7}, {"y": 2026, "d": 23, "sun": 0.16, "pr": 5.4, "k": 7}, {"y": 2026, "d": 24, "sun": 7.43, "pr": 0.5, "k": 7}, {"y": 2026, "d": 25, "sun": 4.51, "pr": 0.4, "k": 7}, {"y": 2026, "d": 26, "sun": 0.0, "pr": 29.1, "k": 7}, {"y": 2026, "d": 27, "sun": 0.69, "pr": 0.4, "k": 7}, {"y": 2026, "d": 28, "sun": 0.06, "pr": 6.0, "k": 7}, {"y": 2026, "d": 29, "sun": 0.0, "pr": 25.6, "k": 7}, {"y": 2026, "d": 30, "sun": 0.37, "pr": 10.8, "k": 7}], "st": [{"id": "s47615", "nm": "宇都宮", "nsun": 119.2, "s88": 49.10000000000001, "s26": 49.8, "p88": 386.0, "p26": 416.5, "h88": 3, "h26": 4}, {"id": "s47624", "nm": "前橋", "nsun": 134.5, "s88": 57.800000000000004, "s26": 52.3, "p88": 420.5, "p26": 281.5, "h88": 5, "h26": 3}, {"id": "s47626", "nm": "熊谷", "nsun": 131.6, "s88": 42.60000000000001, "s26": 49.00000000000001, "p88": 363.0, "p26": 363.5, "h88": 4, "h26": 2}, {"id": "s47629", "nm": "水戸", "nsun": 138.7, "s88": 50.699999999999996, "s26": 53.5, "p88": 287.5, "p26": 641.0, "h88": 3, "h26": 4}, {"id": "s47648", "nm": "銚子", "nsun": 158.9, "s88": 69.9, "s26": 49.800000000000004, "p88": 373.0, "p26": 677.5, "h88": 5, "h26": 4}, {"id": "s47662", "nm": "東京", "nsun": 127.4, "s88": 39.2, "s26": 45.800000000000004, "p88": 251.5, "p26": 696.5, "h88": 2, "h26": 3}, {"id": "s47670", "nm": "横浜", "nsun": 141.5, "s88": 43.300000000000004, "s26": 50.5, "p88": 302.0, "p26": 785.5, "h88": 2, "h26": 3}, {"id": "s47682", "nm": "千葉", "nsun": 134.3, "s88": 41.599999999999994, "s26": 49.300000000000004, "p88": 229.5, "p26": 771.0, "h88": 3, "h26": 2}], "choshi": [{"y": 1899, "sun": 100.7}, {"y": 1900, "sun": 126.69999999999999}, {"y": 1901, "sun": 148.19999999999996}, {"y": 1902, "sun": 128.4}, {"y": 1903, "sun": 129.89999999999998}, {"y": 1904, "sun": 164.1}, {"y": 1905, "sun": 202.60000000000002}, {"y": 1906, "sun": 123.10000000000001}, {"y": 1907, "sun": 177.89999999999998}, {"y": 1908, "sun": 145.20000000000002}, {"y": 1909, "sun": 162.20000000000002}, {"y": 1910, "sun": 104.9}, {"y": 1911, "sun": 183.9}, {"y": 1912, "sun": 89.89999999999999}, {"y": 1913, "sun": 131.70000000000002}, {"y": 1914, "sun": 179.00000000000006}, {"y": 1915, "sun": 169.79999999999998}, {"y": 1916, "sun": 185.70000000000002}, {"y": 1917, "sun": 113.6}, {"y": 1918, "sun": 172.09999999999997}, {"y": 1919, "sun": 167.80000000000004}, {"y": 1920, "sun": 173.39999999999998}, {"y": 1921, "sun": 89.80000000000001}, {"y": 1922, "sun": 209.9}, {"y": 1923, "sun": 215.5}, {"y": 1924, "sun": 159.59999999999997}, {"y": 1925, "sun": 185.79999999999998}, {"y": 1926, "sun": 168.1}, {"y": 1927, "sun": 145.1}, {"y": 1928, "sun": 213.39999999999995}, {"y": 1929, "sun": 123.2}, {"y": 1930, "sun": 189.1}, {"y": 1931, "sun": 131.6}, {"y": 1932, "sun": 136.09999999999997}, {"y": 1933, "sun": 216.29999999999998}, {"y": 1934, "sun": 98.3}, {"y": 1935, "sun": 118.9}, {"y": 1936, "sun": 204.70000000000005}, {"y": 1937, "sun": 169.29999999999995}, {"y": 1938, "sun": 176.8}, {"y": 1939, "sun": 166.50000000000003}, {"y": 1940, "sun": 154.60000000000002}, {"y": 1941, "sun": 126.0}, {"y": 1942, "sun": 208.99999999999994}, {"y": 1943, "sun": 181.69999999999996}, {"y": 1944, "sun": 168.5}, {"y": 1946, "sun": 166.8}, {"y": 1947, "sun": 160.4}, {"y": 1948, "sun": 217.7}, {"y": 1949, "sun": 169.2}, {"y": 1950, "sun": 164.9}, {"y": 1951, "sun": 126.6}, {"y": 1952, "sun": 153.8}, {"y": 1953, "sun": 121.2}, {"y": 1954, "sun": 194.50000000000009}, {"y": 1955, "sun": 148.2}, {"y": 1956, "sun": 160.3}, {"y": 1957, "sun": 100.50000000000001}, {"y": 1958, "sun": 135.49999999999997}, {"y": 1959, "sun": 149.1}, {"y": 1960, "sun": 167.9}, {"y": 1961, "sun": 222.89999999999995}, {"y": 1962, "sun": 176.89999999999998}, {"y": 1963, "sun": 138.89999999999998}, {"y": 1964, "sun": 106.1}, {"y": 1965, "sun": 137.0}, {"y": 1966, "sun": 120.80000000000001}, {"y": 1967, "sun": 157.6}, {"y": 1968, "sun": 152.2}, {"y": 1969, "sun": 159.39999999999998}, {"y": 1970, "sun": 152.49999999999997}, {"y": 1971, "sun": 121.19999999999999}, {"y": 1972, "sun": 210.70000000000005}, {"y": 1973, "sun": 167.39999999999998}, {"y": 1974, "sun": 154.60000000000002}, {"y": 1975, "sun": 232.30000000000004}, {"y": 1976, "sun": 181.60000000000002}, {"y": 1977, "sun": 157.29999999999998}, {"y": 1978, "sun": 125.19999999999999}, {"y": 1979, "sun": 159.40000000000003}, {"y": 1980, "sun": 145.60000000000002}, {"y": 1981, "sun": 162.2}, {"y": 1982, "sun": 113.39999999999998}, {"y": 1983, "sun": 124.8}, {"y": 1984, "sun": 186.60000000000005}, {"y": 1985, "sun": 143.20000000000002}, {"y": 1986, "sun": 150.79999999999998}, {"y": 1987, "sun": 150.7}, {"y": 1988, "sun": 69.9}, {"y": 1989, "sun": 187.59999999999997}, {"y": 1990, "sun": 160.2}, {"y": 1991, "sun": 115.20000000000002}, {"y": 1992, "sun": 195.10000000000005}, {"y": 1993, "sun": 132.5}, {"y": 1994, "sun": 162.10000000000002}, {"y": 1995, "sun": 151.29999999999998}, {"y": 1996, "sun": 168.09999999999997}, {"y": 1997, "sun": 127.00000000000003}, {"y": 1998, "sun": 121.89999999999996}, {"y": 1999, "sun": 171.7}, {"y": 2000, "sun": 179.1}, {"y": 2001, "sun": 150.19999999999996}, {"y": 2002, "sun": 142.69999999999996}, {"y": 2003, "sun": 178.89999999999998}, {"y": 2004, "sun": 175.69999999999996}, {"y": 2005, "sun": 196.70000000000005}, {"y": 2006, "sun": 135.10000000000002}, {"y": 2007, "sun": 170.9}, {"y": 2008, "sun": 137.79999999999998}, {"y": 2009, "sun": 133.9}, {"y": 2010, "sun": 185.90000000000003}, {"y": 2011, "sun": 197.3}, {"y": 2012, "sun": 207.89999999999998}, {"y": 2013, "sun": 198.99999999999994}, {"y": 2014, "sun": 172.80000000000004}, {"y": 2015, "sun": 144.70000000000002}, {"y": 2016, "sun": 112.60000000000001}, {"y": 2017, "sun": 150.9}, {"y": 2018, "sun": 119.0}, {"y": 2019, "sun": 194.9}, {"y": 2020, "sun": 136.70000000000002}, {"y": 2021, "sun": 146.5}, {"y": 2022, "sun": 125.00000000000001}, {"y": 2023, "sun": 208.3}, {"y": 2024, "sun": 191.4}, {"y": 2025, "sun": 197.60000000000002}, {"y": 2026, "sun": 49.800000000000004}], "tokyocc": [{"y": 1961, "cc": 5.87, "ov": 6}, {"y": 1962, "cc": 6.88, "ov": 9}, {"y": 1963, "cc": 8.3, "ov": 17}, {"y": 1964, "cc": 8.67, "ov": 20}, {"y": 1965, "cc": 7.73, "ov": 15}, {"y": 1966, "cc": 8.2, "ov": 16}, {"y": 1967, "cc": 8.44, "ov": 15}, {"y": 1968, "cc": 7.34, "ov": 16}, {"y": 1969, "cc": 7.2, "ov": 11}, {"y": 1970, "cc": 8.23, "ov": 19}, {"y": 1971, "cc": 8.72, "ov": 18}, {"y": 1972, "cc": 6.9, "ov": 9}, {"y": 1973, "cc": 7.39, "ov": 11}, {"y": 1974, "cc": 8.2, "ov": 16}, {"y": 1975, "cc": 5.76, "ov": 4}, {"y": 1976, "cc": 7.4, "ov": 12}, {"y": 1977, "cc": 7.89, "ov": 15}, {"y": 1978, "cc": 7.98, "ov": 17}, {"y": 1979, "cc": 8.06, "ov": 13}, {"y": 1980, "cc": 7.39, "ov": 15}, {"y": 1981, "cc": 7.75, "ov": 16}, {"y": 1982, "cc": 7.5, "ov": 12}, {"y": 1983, "cc": 8.27, "ov": 19}, {"y": 1984, "cc": 7.23, "ov": 14}, {"y": 1985, "cc": 8.48, "ov": 19}, {"y": 1986, "cc": 7.78, "ov": 16}, {"y": 1987, "cc": 8.26, "ov": 15}, {"y": 1988, "cc": 9.29, "ov": 23}, {"y": 1989, "cc": 8.36, "ov": 17}, {"y": 1990, "cc": 6.99, "ov": 13}, {"y": 1991, "cc": 7.81, "ov": 15}, {"y": 1992, "cc": 6.99, "ov": 8}, {"y": 1993, "cc": 8.38, "ov": 17}, {"y": 1994, "cc": 7.61, "ov": 13}, {"y": 1995, "cc": 7.8, "ov": 13}, {"y": 1996, "cc": 7.68, "ov": 9}, {"y": 1997, "cc": 8.59, "ov": 21}, {"y": 1998, "cc": 7.94, "ov": 15}, {"y": 1999, "cc": 7.74, "ov": 12}, {"y": 2000, "cc": 7.24, "ov": 11}, {"y": 2001, "cc": 7.43, "ov": 15}, {"y": 2002, "cc": 7.67, "ov": 16}, {"y": 2003, "cc": 7.27, "ov": 9}, {"y": 2004, "cc": 7.37, "ov": 13}, {"y": 2005, "cc": 7.09, "ov": 10}, {"y": 2006, "cc": 7.75, "ov": 15}, {"y": 2007, "cc": 8.0, "ov": 17}, {"y": 2008, "cc": 7.88, "ov": 14}, {"y": 2009, "cc": 7.65, "ov": 17}, {"y": 2010, "cc": 7.63, "ov": 11}, {"y": 2011, "cc": 7.1, "ov": 11}, {"y": 2012, "cc": 8.09, "ov": 13}, {"y": 2013, "cc": 6.79, "ov": 12}, {"y": 2014, "cc": 7.76, "ov": 13}, {"y": 2015, "cc": 8.33, "ov": 16}, {"y": 2016, "cc": 8.93, "ov": 21}, {"y": 2017, "cc": 8.4, "ov": 16}, {"y": 2018, "cc": 9.06, "ov": 20}, {"y": 2019, "cc": 7.95, "ov": 12}, {"y": 2020, "cc": 8.34, "ov": 19}, {"y": 2021, "cc": 8.0, "ov": 15}, {"y": 2022, "cc": 8.06, "ov": 19}, {"y": 2023, "cc": 7.2, "ov": 11}, {"y": 2024, "cc": 6.81, "ov": 10}, {"y": 2025, "cc": 7.17, "ov": 9}, {"y": 2026, "cc": 9.48, "ov": 26}], "tokyohare": [{"y": 1988, "hare": 1, "ame": 19, "n": 30}, {"y": 1971, "hare": 3, "ame": 13, "n": 30}, {"y": 1983, "hare": 7, "ame": 15, "n": 30}, {"y": 1967, "hare": 7, "ame": 10, "n": 30}, {"y": 1970, "hare": 7, "ame": 15, "n": 30}, {"y": 1987, "hare": 7, "ame": 14, "n": 30}], "tokyoame": [{"y": 2026, "ame": 22}, {"y": 1991, "ame": 21}, {"y": 1998, "ame": 20}, {"y": 1997, "ame": 19}, {"y": 1994, "ame": 19}], "runs": [{"y": 1988, "longest": 14, "f": "1988-09-17", "l": "1988-09-30"}, {"y": 2026, "longest": 11, "f": "2026-09-03", "l": "2026-09-13"}, {"y": 1991, "longest": 9, "f": "1991-09-13", "l": "1991-09-21"}, {"y": 2018, "longest": 8, "f": "2018-09-20", "l": "2018-09-27"}, {"y": 1980, "longest": 7, "f": "1980-09-22", "l": "1980-09-28"}], "ctx": [{"y": 1988, "mo": 6, "pct": 94.0, "k": 7}, {"y": 1988, "mo": 7, "pct": 42.0, "k": 7}, {"y": 1988, "mo": 8, "pct": 77.0, "k": 7}, {"y": 1988, "mo": 9, "pct": 37.0, "k": 7}, {"y": 1988, "mo": 10, "pct": 118.0, "k": 7}, {"y": 2026, "mo": 6, "pct": 88.0, "k": 7}, {"y": 2026, "mo": 7, "pct": 110.0, "k": 7}, {"y": 2026, "mo": 8, "pct": 91.0, "k": 7}, {"y": 2026, "mo": 9, "pct": 37.0, "k": 7}, {"y": 2026, "mo": 10, "pct": 118.0, "k": 7}]};
+const NORM = {sun:135.3, pr:214, perDay:135.3/30};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function txt(parent,x,y,s,attrs={}){const t=el('text',Object.assign({x,y,fill:css('--ink2'),'font-size':12},attrs),parent);t.textContent=s;return t;}
+const tip=document.getElementById('tip');
+function showTip(ev,title,rows){tip.innerHTML='<div class="t">'+title+'</div>'+rows.map(r=>'<div class="r"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>').join('');tip.style.opacity=1;moveTip(ev);}
+function moveTip(ev){const w=tip.offsetWidth,h=tip.offsetHeight;let x=ev.clientX+14,y=ev.clientY+14;if(x+w>innerWidth-8)x=ev.clientX-w-14;if(y+h>innerHeight-8)y=ev.clientY-h-14;tip.style.left=x+'px';tip.style.top=y+'px';}
+function hideTip(){tip.style.opacity=0;}
+function hover(node,title,rows){node.addEventListener('pointerenter',e=>showTip(e,title,rows));node.addEventListener('pointermove',moveTip);node.addEventListener('pointerleave',hideTip);}
+function svgFor(id,h){const c=document.getElementById(id);c.innerHTML='';const W=Math.max(300,c.clientWidth);const s=el('svg',{viewBox:`0 0 ${W} ${h}`,height:h,role:'img'},c);return [s,W];}
+const yearColor=y=>y===2026?css('--now'):y===1988?css('--past'):css('--base');
+
+function drawCal(){
+  const narrow=document.getElementById('cal').clientWidth<560;
+  const rowH=narrow?150:170, gap=28, H=rowH*2+gap+24;
+  const [s,W]=svgFor('cal',H);
+  const L=narrow?46:58,R=8,cw=(W-L-R)/30;
+  [1988,2026].forEach((y,i)=>{
+    const top=i*(rowH+gap)+6, mid=top+rowH*0.58, sunH=rowH*0.55, prH=rowH*0.38;
+    const days=D.daily.filter(r=>r.y===y);
+    txt(s,0,top+14,y+'年',{fill:yearColor(y),'font-weight':700,'font-size':narrow?13:15});
+    const ys=v=>mid-v/10*sunH, yp=v=>mid+v/120*prH;
+    [5,10].forEach(v=>{el('line',{x1:L,x2:W-R,y1:ys(v),y2:ys(v),stroke:css('--grid')},s);txt(s,L-4,ys(v)+4,v+'h',{'text-anchor':'end','font-size':10,fill:css('--muted')});});
+    [50,100].forEach(v=>{el('line',{x1:L,x2:W-R,y1:yp(v),y2:yp(v),stroke:css('--grid')},s);txt(s,L-4,yp(v)+4,v+'mm',{'text-anchor':'end','font-size':10,fill:css('--muted')});});
+    el('line',{x1:L,x2:W-R,y1:mid,y2:mid,stroke:css('--axis')},s);
+    days.forEach(r=>{
+      const x=L+(r.d-1)*cw+cw*0.14, w=cw*0.72;
+      const g=el('g',{},s);
+      el('rect',{x:L+(r.d-1)*cw,y:top,width:cw,height:rowH,fill:'transparent'},g);
+      if(r.sun>0)el('rect',{x,y:ys(r.sun),width:w,height:mid-ys(r.sun),fill:css('--sun'),rx:1.5},g);
+      if(r.pr>0)el('rect',{x,y:mid,width:w,height:Math.max(1,yp(Math.min(r.pr,120))-mid),fill:css('--rain'),rx:1.5},g);
+      hover(g,`${y}年9月${r.d}日`,[['日照',r.sun.toFixed(1)+' 時間'],['降水',r.pr.toFixed(1)+' mm']]);
+    });
+    el('line',{x1:L,x2:W-R,y1:ys(NORM.perDay),y2:ys(NORM.perDay),stroke:css('--ink2'),'stroke-dasharray':'4 3'},s);
+    const tot=days.reduce((a,r)=>a+r.sun,0);
+    txt(s,W-R,top+14,`日照 ${tot.toFixed(0)}時間・降水 ${days.reduce((a,r)=>a+r.pr,0).toFixed(0)}mm`,{'text-anchor':'end','font-size':12});
+    [1,10,20,30].forEach(d=>txt(s,L+(d-0.5)*cw,top+rowH+12,d+'日',{'text-anchor':'middle','font-size':10,fill:css('--muted')}));
+  });
+}
+
+function drawYears(){
+  const H=280;const [s,W]=svgFor('yr',H);
+  const L=40,R=8,T=12,B=26;const rows=D.reg;const y0=1961,y1=2026,n=y1-y0+1;
+  const bw=(W-L-R)/n, ys=v=>T+(H-T-B)*(1-v/140);
+  [0,20,40,60,80,100,120,140].forEach(v=>{el('line',{x1:L,x2:W-R,y1:ys(v),y2:ys(v),stroke:v===100?css('--axis'):css('--grid'),'stroke-dasharray':v===100?'4 3':''},s);txt(s,L-6,ys(v)+4,v+'%',{'text-anchor':'end','font-size':10,fill:css('--muted')});});
+  rows.forEach(r=>{const x=L+(r.y-y0)*bw;const g=el('g',{},s);
+    el('rect',{x,y:T,width:bw,height:H-T-B,fill:'transparent'},g);
+    el('rect',{x:x+bw*0.12,y:ys(r.pct),width:bw*0.76,height:ys(0)-ys(r.pct),fill:yearColor(r.y),rx:1},g);
+    hover(g,r.y+'年9月',[['平年比',r.pct+'%'],['日照',r.sun.toFixed(1)+' 時間'],['降水',r.pr+' mm']]);});
+  for(let y=1970;y<=2020;y+=10)txt(s,L+(y-y0+0.5)*bw,H-8,y,{'text-anchor':'middle','font-size':11,fill:css('--muted')});
+  [[1988,'1988年 37%'],[2026,'2026年 37%']].forEach(([y,l])=>{const x=L+(y-y0+0.5)*bw;txt(s,x,ys(37)-8,l,{'text-anchor':y===2026?'end':'middle','font-size':12,'font-weight':700,fill:yearColor(y)});});
+  txt(s,L+(1971-y0+0.5)*bw,ys(65)-6,'1971年 65%',{'text-anchor':'middle','font-size':11});
+}
+
+function drawScatter(){
+  const H=340;const [s,W]=svgFor('sc',H);
+  const L=50,R=14,T=14,B=38;const xs=v=>L+(W-L-R)*(v-20)/(160-20), ys=v=>T+(H-T-B)*(1-v/600);
+  [0,100,200,300,400,500,600].forEach(v=>{el('line',{x1:L,x2:W-R,y1:ys(v),y2:ys(v),stroke:css('--grid')},s);txt(s,L-6,ys(v)+4,v,{'text-anchor':'end','font-size':10,fill:css('--muted')});});
+  [40,60,80,100,120,140,160].forEach(v=>{el('line',{x1:xs(v),x2:xs(v),y1:T,y2:H-B,stroke:v===100?css('--axis'):css('--grid'),'stroke-dasharray':v===100?'4 3':''},s);txt(s,xs(v),H-B+14,v+'%',{'text-anchor':'middle','font-size':10,fill:css('--muted')});});
+  txt(s,(L+W-R)/2,H-4,'日照時間（平年比）',{'text-anchor':'middle','font-size':11});
+  txt(s,L-6,T-2,'mm',{'text-anchor':'end','font-size':10,fill:css('--muted')});
+  const rows=[...D.reg].sort((a,b)=>(a.y===2026||a.y===1988)-(b.y===2026||b.y===1988));
+  rows.forEach(r=>{const hi=r.y===2026||r.y===1988;const c=el('circle',{cx:xs(r.pct),cy:ys(r.pr),r:hi?7:4.5,fill:yearColor(r.y),'fill-opacity':hi?1:.75,stroke:css('--surface'),'stroke-width':1},s);
+    hover(c,r.y+'年9月',[['日照',r.pct+'%'],['降水',r.pr+' mm'],['雨の日',r.rain1+' 日']]);});
+  txt(s,xs(37)+11,ys(552)+4,'2026年',{'font-size':12,'font-weight':700,fill:css('--now')});
+  txt(s,xs(37)+11,ys(341)+4,'1988年',{'font-size':12,'font-weight':700,fill:css('--past')});
+  const r82=D.reg.find(r=>r.y===1982);txt(s,xs(r82.pct)+8,ys(r82.pr)+4,'1982年',{'font-size':11});
+}
+
+function dumbbell(id,key88,key26,normKey,max,unit,ticks){
+  const rows=D.st;const rh=34,T=8,B=24,H=T+rows.length*rh+B;const [s,W]=svgFor(id,H);
+  const L=62,R=16;const xs=v=>L+(W-L-R)*v/max;
+  ticks.forEach(v=>{el('line',{x1:xs(v),x2:xs(v),y1:T,y2:H-B,stroke:css('--grid')},s);txt(s,xs(v),H-6,v+unit,{'text-anchor':'middle','font-size':10,fill:css('--muted')});});
+  rows.forEach((r,i)=>{const y=T+i*rh+rh/2;const g=el('g',{},s);
+    el('rect',{x:0,y:y-rh/2,width:W,height:rh,fill:'transparent'},g);
+    txt(g,0,y+4,r.nm,{'font-size':13,fill:css('--ink')});
+    const vals=[r[key88],r[key26]].concat(normKey?[r[normKey]]:[]);
+    el('line',{x1:xs(Math.min(...vals)),x2:xs(Math.max(...vals)),y1:y,y2:y,stroke:css('--axis'),'stroke-width':3,'stroke-linecap':'round'},g);
+    if(normKey)el('circle',{cx:xs(r[normKey]),cy:y,r:6,fill:css('--surface'),stroke:css('--ink2'),'stroke-width':2},g);
+    el('circle',{cx:xs(r[key88]),cy:y,r:6.5,fill:css('--past')},g);
+    el('circle',{cx:xs(r[key26]),cy:y,r:6.5,fill:css('--now')},g);
+    const rr=[['1988年',r[key88].toFixed(1)+unit],['2026年',r[key26].toFixed(1)+unit]];
+    if(normKey)rr.unshift(['平年',r[normKey].toFixed(1)+unit]);
+    hover(g,r.nm,rr);});
+}
+
+function drawCC(){
+  const H=230;const [s,W]=svgFor('cc',H);const L=36,R=10,T=14,B=26;const rows=D.tokyocc;
+  const y0=1961,n=66,xs=y=>L+(W-L-R)*(y-y0)/(n-1), ys=v=>T+(H-T-B)*(1-(v-5)/5);
+  [5,6,7,8,9,10].forEach(v=>{el('line',{x1:L,x2:W-R,y1:ys(v),y2:ys(v),stroke:css('--grid')},s);txt(s,L-6,ys(v)+4,v,{'text-anchor':'end','font-size':10,fill:css('--muted')});});
+  el('path',{d:rows.map((r,i)=>(i?'L':'M')+xs(r.y)+','+ys(r.cc)).join(''),fill:'none',stroke:css('--base'),'stroke-width':1.5},s);
+  rows.forEach(r=>{const hi=r.y===2026||r.y===1988;const c=el('circle',{cx:xs(r.y),cy:ys(r.cc),r:hi?6:3,fill:yearColor(r.y)},s);
+    const g=el('g',{},s);el('rect',{x:xs(r.y)-(W-L-R)/n/2,y:T,width:(W-L-R)/n,height:H-T-B,fill:'transparent'},g);
+    hover(g,r.y+'年9月（東京）',[['平均雲量',r.cc.toFixed(2)],['雲量9以上の日',r.ov+' 日']]);});
+  for(let y=1970;y<=2020;y+=10)txt(s,xs(y),H-8,y,{'text-anchor':'middle','font-size':11,fill:css('--muted')});
+  txt(s,xs(2026)-8,ys(9.48)+4,'2026年 9.48',{'text-anchor':'end','font-size':12,'font-weight':700,fill:css('--now')});
+  txt(s,xs(1988),ys(9.29)-10,'1988年 9.29',{'text-anchor':'middle','font-size':12,'font-weight':700,fill:css('--past')});
+}
+
+function drawMonths(){
+  const H=240;const [s,W]=svgFor('mo',H);const L=40,R=8,T=14,B=26;
+  const mos=[6,7,8,9,10],gw=(W-L-R)/5,ys=v=>T+(H-T-B)*(1-v/140);
+  [0,20,40,60,80,100,120,140].forEach(v=>{el('line',{x1:L,x2:W-R,y1:ys(v),y2:ys(v),stroke:v===100?css('--ink2'):css('--grid'),'stroke-dasharray':v===100?'4 3':''},s);txt(s,L-6,ys(v)+4,v+'%',{'text-anchor':'end','font-size':10,fill:css('--muted')});});
+  mos.forEach((m,i)=>{[1988,2026].forEach((y,j)=>{const r=D.ctx.find(c=>c.y===y&&c.mo===m);const bw=gw*0.3,x=L+i*gw+gw*0.18+j*(bw+gw*0.04);
+    const b=el('rect',{x,y:ys(r.pct),width:bw,height:ys(0)-ys(r.pct),fill:yearColor(y),rx:2},s);
+    txt(s,x+bw/2,ys(r.pct)-5,r.pct+'%',{'text-anchor':'middle','font-size':11,fill:css('--ink')});
+    hover(b,`${y}年${m}月`,[['日照（平年比）',r.pct+'%']]);});
+    txt(s,L+i*gw+gw/2,H-8,m+'月',{'text-anchor':'middle','font-size':12});});
+}
+
+function drawChoshi(){
+  const H=260;const [s,W]=svgFor('ch',H);const L=40,R=8,T=14,B=26;const rows=D.choshi;
+  const y0=1899,y1=2026,n=y1-y0+1,bw=(W-L-R)/n,ys=v=>T+(H-T-B)*(1-v/260);
+  el('rect',{x:L,y:T,width:(1986-y0)*bw,height:H-T-B,fill:css('--mid'),'fill-opacity':.5},s);
+  txt(s,L+4,T+12,'1985年以前：旧型の日照計',{'font-size':10,fill:css('--muted')});
+  [0,50,100,150,200,250].forEach(v=>{el('line',{x1:L,x2:W-R,y1:ys(v),y2:ys(v),stroke:css('--grid')},s);txt(s,L-6,ys(v)+4,v,{'text-anchor':'end','font-size':10,fill:css('--muted')});});
+  rows.forEach(r=>{const x=L+(r.y-y0)*bw;const g=el('g',{},s);el('rect',{x,y:T,width:bw,height:H-T-B,fill:'transparent'},g);
+    el('rect',{x:x+bw*0.1,y:ys(r.sun),width:Math.max(1,bw*0.8),height:ys(0)-ys(r.sun),fill:yearColor(r.y)},g);
+    hover(g,r.y+'年9月（銚子）',[['日照',r.sun.toFixed(1)+' 時間']]);});
+  for(let y=1900;y<=2020;y+=20)txt(s,L+(y-y0+0.5)*bw,H-8,y,{'text-anchor':'middle','font-size':11,fill:css('--muted')});
+  txt(s,L+(2026-y0+0.5)*bw,ys(49.8)-6,'2026年',{'text-anchor':'end','font-size':12,'font-weight':700,fill:css('--now')});
+  txt(s,L+(1988-y0+0.5)*bw,ys(69.9)-6,'1988年',{'text-anchor':'middle','font-size':12,'font-weight':700,fill:css('--past')});
+}
+
+function drawAll(){drawCal();drawYears();drawScatter();dumbbell('db','s88','s26','nsun',170,'h',[0,50,100,150]);dumbbell('dbp','p88','p26',null,820,'mm',[0,200,400,600,800]);drawCC();drawMonths();drawChoshi();}
+drawAll();
+let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(drawAll,120);});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',drawAll);
+new MutationObserver(drawAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+</script>
+</body>
+</html>

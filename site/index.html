@@ -3,392 +3,858 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>japan-weather｜気象庁の過去の観測データを、AI で分析できる形に</title>
-<meta name="description" content="気象庁「過去の気象データ・ダウンロード」の全地点の日別値（1872年〜）と時別値（1885年〜）を Parquet にまとめ、Hugging Face で毎日更新して公開するデータセットと、その取得ツール。AI エージェント向けの文書付き。">
+<title>japan-weather-dataset｜気象データを、AIがすぐ使える形に。</title>
+<meta name="description" content="1872年からの150年分、全国1,678地点の気象観測記録を、AIがすぐ使える形にまとめたオープンデータセット。データは毎日更新。URLを一つ渡せば、AIが調べて答えます。">
+<link rel="canonical" href="https://hotchpotch.github.io/japan-weather-dataset/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="japan-weather｜気象庁の過去の観測データを、AI で分析できる形に">
-<meta property="og:description" content="全国約1,700地点・150年分の気象観測を Parquet で。毎日更新、AI エージェント向けの文書付き。">
+<meta property="og:site_name" content="japan-weather-dataset">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="japan-weather-dataset｜気象データを、AIがすぐ使える形に。">
+<meta property="og:description" content="1872年からの150年分、全国1,678地点の気象観測記録を、AIがすぐ使える形にまとめたオープンデータセット。データは毎日更新。URLを一つ渡せば、AIが調べて答えます。">
 <meta property="og:url" content="https://hotchpotch.github.io/japan-weather-dataset/">
 <meta property="og:image" content="https://hotchpotch.github.io/japan-weather-dataset/images/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="気象データを、AIがすぐ使える形に。japan-weather-dataset">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="alternate" type="text/markdown" title="llms.txt" href="llms.txt">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='2' height='8' fill='%231c5cab'/%3E%3Crect x='2' width='2' height='8' fill='%2386b6ef'/%3E%3Crect x='4' width='2' height='8' fill='%23f2917a'/%3E%3Crect x='6' width='2' height='8' fill='%23b8322a'/%3E%3C/svg%3E">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="alternate" type="text/plain" title="llms.txt" href="llms.txt">
+</head>
+<body>
+<!-- Icons: Lucide 1.70.0 (https://lucide.dev), ISC License, Copyright (c) 2026 Lucide Icons and Contributors.
+     Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted,
+     provided that the above copyright notice and this permission notice appear in all copies.
+     THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE.
+     Hugging Face logo: official asset from huggingface.co. -->
 <style>
+/* layout: product-page rhythm. hero (copy with unofficial notice | question demo), two feature sections that alternate sides,
+   one dark band for the why, showroom grid, start cards, links. Demo panels are always dark "instruments". */
 :root{
-  --bg:#f6f6f4; --surface:#ffffff; --surface2:#eef0ef; --ink:#14181c; --ink2:#454c53; --muted:#6d747a;
-  --line:rgba(20,24,28,.11); --accent:#b8322a; --cool:#1c5cab; --code-bg:#14181c; --code-ink:#e8eaea;
-  --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05);
-  color-scheme:light;
+  --bg:#f4f6f7; --bg2:#e9eef1; --surface:#ffffff; --ink:#13202c; --ink2:#46535f; --muted:#6c7884;
+  --line:rgba(19,32,44,.12); --line2:rgba(19,32,44,.2);
+  --brand:#1d5d9b; --brand-ink:#ffffff; --heat:#c4412b; --heat-soft:#fbe3dc; --cool:#2f6db5;
+  --band:#13263a; --band-ink:#e8eef3; --band-muted:#9fb2c3; --band-accent:#f2a28f;
+  --panel:#111a23; --panel2:#18232e; --panel-line:rgba(255,255,255,.10); --panel-ink:#e6edf3; --panel-muted:#8b9aa8;
+  --p-green:#7ad4a5; --p-blue:#86b6ef; --p-red:#f2917a; --p-amber:#f0c36b;
+  --notice:#fff6e5; --notice-line:#ecd39f; --notice-ink:#5a4313;
+  --shadow:0 1px 2px rgba(19,32,44,.05),0 10px 30px rgba(19,32,44,.07);
+  --font:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Yu Gothic",Meiryo,system-ui,sans-serif;
+  --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Noto Sans Mono",monospace;
+  --w:1180px;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#0f1113; --surface:#171a1d; --surface2:#1e2226; --ink:#eceeee; --ink2:#b9bec2; --muted:#8c9398;
-    --line:rgba(255,255,255,.10); --accent:#f2917a; --cool:#86b6ef; --code-bg:#0a0c0d; --code-ink:#e8eaea;
+    --bg:#0e141a; --bg2:#121b23; --surface:#16202a; --ink:#e7edf2; --ink2:#b5c0ca; --muted:#8895a1;
+    --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.2);
+    --brand:#6fa8e6; --brand-ink:#0e141a; --heat:#f2917a; --heat-soft:rgba(242,145,122,.14); --cool:#86b6ef;
+    --band:#0a1825; --band-ink:#e8eef3; --band-muted:#93a6b8; --band-accent:#f2a28f;
+    --panel:#0a1016; --panel2:#111a23; --panel-line:rgba(255,255,255,.10);
+    --notice:#2a2113; --notice-line:#5d4a24; --notice-ink:#f0dcb0;
     --shadow:none; color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0f1113; --surface:#171a1d; --surface2:#1e2226; --ink:#eceeee; --ink2:#b9bec2; --muted:#8c9398;
-  --line:rgba(255,255,255,.10); --accent:#f2917a; --cool:#86b6ef; --code-bg:#0a0c0d; --code-ink:#e8eaea;
+  --bg:#0e141a; --bg2:#121b23; --surface:#16202a; --ink:#e7edf2; --ink2:#b5c0ca; --muted:#8895a1;
+  --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.2);
+  --brand:#6fa8e6; --brand-ink:#0e141a; --heat:#f2917a; --heat-soft:rgba(242,145,122,.14); --cool:#86b6ef;
+  --band:#0a1825; --band-ink:#e8eef3; --band-muted:#93a6b8; --band-accent:#f2a28f;
+  --panel:#0a1016; --panel2:#111a23; --panel-line:rgba(255,255,255,.10);
+  --notice:#2a2113; --notice-line:#5d4a24; --notice-ink:#f0dcb0;
   --shadow:none; color-scheme:dark;
 }
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);
-  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Yu Gothic",Meiryo,system-ui,sans-serif;
-  font-size:16px;line-height:1.85;font-feature-settings:"palt" 0}
-a{color:var(--cool);text-underline-offset:3px}
-a:hover{text-decoration-thickness:2px}
-code,pre,.mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Noto Sans Mono",monospace}
-.wrap{max-width:1040px;margin:0 auto;padding:0 16px}
-.read{max-width:42em}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.85}
+a{color:var(--brand);text-underline-offset:3px}
+img{max-width:100%}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.in{max-width:var(--w);margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
 .tab{font-variant-numeric:tabular-nums}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--brand);margin:0 0 18px}
+h1,h2{font-weight:800;letter-spacing:.01em;text-wrap:balance;margin:0}
+h2{font-size:clamp(30px,4.4vw,46px);line-height:1.32}
+.lead{color:var(--ink2);font-size:16px;line-height:2;margin:26px 0 0;max-width:34em}
+.more{display:inline-flex;gap:8px;align-items:center;margin-top:26px;font-size:14px;font-weight:700;color:var(--ink);text-decoration:none;border-bottom:2px solid var(--brand);padding-bottom:5px}
+.more:hover{color:var(--brand)}
+.mores{display:flex;flex-wrap:wrap;gap:6px 26px}
 
-/* nav */
-.nav{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-.nav .wrap{display:flex;align-items:center;gap:20px;height:52px}
-.brand{font-weight:700;color:var(--ink);text-decoration:none;letter-spacing:.01em;white-space:nowrap}
-.nav ul{display:flex;gap:18px;list-style:none;margin:0 0 0 auto;padding:0;font-size:14px;overflow-x:auto;scrollbar-width:none}
-.nav ul::-webkit-scrollbar{display:none}
-.nav li a{color:var(--ink2);text-decoration:none;white-space:nowrap}
-.nav li a:hover{color:var(--ink)}
+/* header */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .in{display:flex;align-items:center;gap:22px;height:62px}
+.logo{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-weight:800;font-size:17px;letter-spacing:.01em}
+.mark{width:26px;height:26px;border-radius:7px;overflow:hidden;display:grid;grid-template-columns:repeat(6,1fr);flex:none}
+.mark i:nth-child(1){background:#0d366b}.mark i:nth-child(2){background:#3987e5}.mark i:nth-child(3){background:#cde2fb}
+.mark i:nth-child(4){background:#fbd0c4}.mark i:nth-child(5){background:#e05a45}.mark i:nth-child(6){background:#7a1712}
+.top nav{margin-left:auto;display:flex;align-items:center;gap:22px;font-size:14px;font-weight:700}
+.top nav a{color:var(--ink);text-decoration:none}
+.top nav a:hover{color:var(--brand)}
+.top nav .ico{display:grid;place-items:center;width:34px;height:34px;border-radius:8px;color:var(--ink)}
+.top nav .ico:hover{background:var(--bg2)}
+.top nav .btn-s{display:inline-flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--line);padding:8px 14px;border-radius:8px}
 
 /* hero */
-.hero{padding:56px 0 8px}
-.eyebrow{font-size:13px;letter-spacing:.08em;color:var(--muted);margin:0 0 14px}
-h1{font-size:clamp(30px,5.4vw,52px);line-height:1.3;margin:0;letter-spacing:.01em;font-weight:800;text-wrap:balance}
-h1 .em{color:var(--accent)}
-.nw{display:inline-block}
-.lede{font-size:clamp(16px,2vw,18px);color:var(--ink2);margin:20px 0 0;max-width:38em}
-.cta{display:flex;flex-wrap:wrap;gap:10px;margin:28px 0 0}
-.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;font-size:15px;font-weight:600;box-shadow:var(--shadow)}
-.btn:hover{border-color:var(--ink2)}
-.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.btn small{font-weight:400;color:inherit;opacity:.7;font-size:12px}
-.stripes-box{margin:40px 0 0}
-.stripes{display:block;width:100%;height:96px;border-radius:6px}
-.stripes-cap{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
-.stripes-cap span:nth-child(2){text-align:center}
-.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:28px 0 0}
-.fact{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow)}
-.fact .v{font-size:28px;font-weight:700;line-height:1.25}
-.fact .v small{font-size:14px;font-weight:500;color:var(--ink2);margin-left:3px}
-.fact .l{font-size:13px;color:var(--ink2);line-height:1.6;margin-top:4px}
+.hero{padding-block:56px 0}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:56px;align-items:center}
+.brandline{display:flex;align-items:center;gap:16px;margin-bottom:34px}
+.brandline .mark{width:58px;height:58px;border-radius:16px;box-shadow:var(--shadow)}
+.brandline b{display:block;font-size:clamp(22px,2.6vw,30px);line-height:1.1;font-weight:800;letter-spacing:.01em}
+.brandline .sub{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11.5px;font-weight:700;letter-spacing:.16em;color:var(--brand)}
+.brandline .sub::before{content:"";width:18px;height:2px;background:var(--brand)}
+h1{font-size:clamp(34px,4.5vw,54px);line-height:1.3}
+h1 .nw,h2 .nw{display:inline-block}
+.cta-row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:34px}
+.cta{display:inline-flex;align-items:center;gap:14px;background:var(--brand);color:var(--brand-ink);text-decoration:none;padding:13px 22px 13px 18px;border-radius:9px;box-shadow:var(--shadow)}
+.cta svg{flex:none}
+.cta b{display:block;font-size:15px;line-height:1.4}
+.cta small{display:block;font-size:11.5px;opacity:.85;line-height:1.4}
+.cta:hover{filter:brightness(1.08)}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.pill{font-size:12px;font-weight:600;color:var(--ink2);border:1px solid var(--line2);border-radius:99px;padding:3px 12px;background:var(--surface)}
+.pill b{color:var(--ink)}
 
-/* sections */
-section{padding:72px 0 0}
-.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:20px}
-.sec-no{font-size:13px;color:var(--accent);font-weight:700;letter-spacing:.06em}
-h2{font-size:clamp(22px,3.2vw,30px);line-height:1.4;margin:0;font-weight:800;text-wrap:balance}
-h3{font-size:18px;margin:32px 0 8px;line-height:1.5}
-p{margin:0 0 1em}
-.note{font-size:14px;color:var(--muted)}
+/* demo panel */
+.panel{background:var(--panel);color:var(--panel-ink);border-radius:16px;box-shadow:0 20px 50px rgba(10,20,30,.22);overflow:hidden;position:relative}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px 0;font-size:10.5px;font-weight:700;letter-spacing:.16em;color:var(--panel-muted);text-transform:uppercase}
+.panel-head .dots{display:flex;gap:6px}
+.panel-head .dots i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.14)}
+.cap{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;margin-top:14px;font-size:12.5px;color:var(--muted);line-height:1.7}
+.cap b{color:var(--ink);font-weight:700;margin-right:8px}
+.toggle{flex:none;display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:11.5px;font-weight:600;color:var(--ink2);background:var(--surface);border:1px solid var(--line2);border-radius:99px;padding:3px 12px;cursor:pointer;white-space:nowrap}
+.toggle:hover{border-color:var(--ink2)}
 
-/* flow */
-.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:28px 0 0;counter-reset:f}
-.flow li{list-style:none;position:relative;background:var(--surface);border:1px solid var(--line);padding:16px 18px 18px;font-size:14px;line-height:1.7;color:var(--ink2)}
-.flow li:first-child{border-radius:10px 0 0 10px}
-.flow li:last-child{border-radius:0 10px 10px 0}
-.flow li+li{border-left:none}
-.flow b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
-.flow li::before{counter-increment:f;content:counter(f);display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--surface2);color:var(--ink2);font-size:12px;font-weight:700;margin-bottom:8px}
-.flow{padding:0}
+/* terminal */
+.term{font-family:var(--mono);font-size:12.5px;line-height:1.75;padding:12px 18px 0;min-height:154px}
+.term .ln{white-space:pre-wrap;word-break:break-word;opacity:1;transition:opacity .25s}
+.term .ln.hide{opacity:0}
+.term .you{color:var(--panel-ink)}
+.term .you::before{content:"› ";color:var(--p-green)}
+.term .url{color:var(--p-blue)}
+.term .step{color:var(--panel-muted)}
+.term .step::before{content:"● ";color:var(--p-green)}
+.term .step.run::before{color:var(--p-amber)}
+.term .res{color:var(--panel-ink)}
+.term .res::before{content:"◆ ";color:var(--p-red)}
+.caret{display:inline-block;width:7px;height:14px;background:var(--panel-ink);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.viz{padding:10px 18px 18px}
+.viz svg{display:block;width:100%;height:auto}
+.viz text{font-family:var(--font);fill:var(--panel-muted);font-size:10px}
+.result-big{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--panel-muted)}
+.result-big b{font-size:26px;color:var(--p-red);font-weight:800;font-variant-numeric:tabular-nums}
 
-/* schedule cards */
-.cards2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0 0}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;box-shadow:var(--shadow)}
-.card h3{margin:0 0 6px;font-size:16px}
-.card p{font-size:14px;color:var(--ink2);margin:0 0 .6em}
-.card .when{font-size:13px;color:var(--muted);margin:0 0 8px}
-.card a.more{font-size:14px}
+/* feature index */
+.index{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:64px;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2)}
+.index a{display:grid;grid-template-columns:auto 1fr auto;gap:2px 14px;padding:20px 22px;color:var(--ink);text-decoration:none}
+.index a+a{border-left:1px solid var(--line2)}
+.index a:hover{background:var(--surface)}
+.index .n{font-size:12px;font-weight:800;color:var(--brand);grid-row:span 2;padding-top:4px}
+.index b{font-size:16px}
+.index small{grid-column:2;color:var(--muted);font-size:12.5px}
+.index .ar{grid-row:1/3;grid-column:3;align-self:center;color:var(--muted)}
 
-/* prompt */
-.prompt{position:relative;background:var(--code-bg);color:var(--code-ink);border-radius:12px;padding:22px 22px 20px;margin:22px 0 0;font-size:15px;line-height:1.9}
-.prompt .label{position:absolute;top:-11px;left:18px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;padding:1px 10px;border-radius:99px;letter-spacing:.04em}
-.prompt p{margin:0}
-.prompt .url{color:#9cc7f5;word-break:break-all}
-.copy{position:absolute;top:-13px;right:16px;font:inherit;font-size:12px;line-height:1.6;color:var(--code-ink);background:#2a3036;border:1px solid rgba(255,255,255,.22);border-radius:99px;padding:1px 12px;cursor:pointer}
-.copy:hover{background:#3a4148}
-pre{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:16px 18px;overflow-x:auto;font-size:13.5px;line-height:1.7;margin:12px 0 0}
-p code,li code,td code{background:var(--surface2);padding:1px 6px;border-radius:4px;font-size:.9em}
-.steps{margin:18px 0 0;padding-left:1.3em}
-.steps li{margin:0 0 .5em}
-.ways{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0 0}
-.card,.fact,.item{min-width:0}
-.ways .card p{margin:0}
+/* features */
+.feat{padding-block:120px}
+.feat.alt{background:var(--bg2)}
+.feat-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:72px;align-items:center}
+.feat.alt .feat-grid{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+.feat.alt .feat-copy{order:2}
+.note-s{font-size:11.5px;color:var(--muted)}
+
+/* map */
+.mapbox{display:grid;grid-template-columns:minmax(0,1fr);padding:6px 18px 16px;position:relative}
+.mapbox svg{display:block;width:100%;height:auto;max-height:470px}
+.mapinfo{position:absolute;left:22px;top:18px;pointer-events:none}
+.mapinfo .yr{font-size:44px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:var(--panel-ink)}
+.mapinfo .cnt{font-size:12.5px;color:var(--panel-muted);margin-top:8px;line-height:1.8}
+.mapinfo .cnt b{color:var(--panel-ink);font-variant-numeric:tabular-nums}
+.mapinfo .cnt i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.mapinfo .ev{margin-top:10px;font-size:12px;color:var(--p-amber);min-height:1.6em}
+.ctl{display:flex;align-items:center;gap:12px;padding:0 18px 18px}
+.ctl button{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--panel-line);background:var(--panel2);color:var(--panel-ink);cursor:pointer;display:grid;place-items:center}
+.ctl button:hover{background:#22303d}
+.ctl input[type=range]{flex:1;min-width:0;accent-color:var(--p-blue)}
+.ctl .ticks{font-size:10.5px;color:var(--panel-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* question picker */
+.qtabs{display:flex;gap:6px;padding:12px 18px 0;flex-wrap:wrap}
+.qtabs button{font:inherit;font-size:12px;font-weight:600;color:var(--panel-muted);background:transparent;border:1px solid var(--panel-line);border-radius:99px;padding:3px 12px;cursor:pointer}
+.qtabs button[aria-pressed="true"]{color:var(--panel);background:var(--panel-ink);border-color:var(--panel-ink)}
+.prompt-copy{display:flex;align-items:center;gap:10px;margin-top:28px;background:var(--surface);border:1px solid var(--line2);border-radius:10px;padding:10px 10px 10px 16px;max-width:34em}
+.prompt-copy code{flex:1;min-width:0;font-family:var(--mono);font-size:12.5px;color:var(--ink2);overflow-x:auto;white-space:nowrap}
+.copy{flex:none;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12px;font-weight:700;color:var(--brand-ink);background:var(--brand);border:0;border-radius:7px;padding:6px 12px;cursor:pointer}
+
+/* band */
+.band{background:var(--band);color:var(--band-ink);padding-block:110px}
+.band-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:72px;align-items:center}
+.band .eyebrow{color:var(--band-accent)}
+.band .band-grid p{margin:0 0 1.1em;line-height:2.05;color:var(--band-ink)}
+.tags{font-size:12.5px;letter-spacing:.06em;color:var(--band-muted);margin-top:6px}
+.tags span+span::before{content:" / ";color:var(--band-muted);opacity:.6}
+.band .more{color:var(--band-ink);border-color:var(--band-accent)}
+.nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:rgba(255,255,255,.12);border-radius:12px;overflow:hidden;margin-top:44px}
+.nums div{background:var(--band);padding:18px 20px}
+.nums b{display:block;font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.3}
+.nums small{color:var(--band-muted);font-size:12px;line-height:1.6;display:block}
 
 /* showroom */
-.show{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:26px 0 0}
-.item{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;color:inherit;text-decoration:none;box-shadow:var(--shadow);transition:transform .15s ease,border-color .15s ease}
-.item:hover{transform:translateY(-2px);border-color:var(--ink2)}
-.item img{display:block;width:100%;height:auto;aspect-ratio:8/5;object-fit:cover;object-position:top;border-bottom:1px solid var(--line);background:#f4f5f4}
-.item .body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:8px;flex:1}
-.item h3{margin:0;font-size:18px}
-.item p{margin:0;font-size:14px;color:var(--ink2);line-height:1.75}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:6px}
-.chip{font-size:12px;background:var(--surface2);color:var(--ink2);border-radius:99px;padding:2px 10px}
-.item .go{font-size:13px;color:var(--cool);font-weight:600}
+.center{text-align:center}
+.center .lead{margin-left:auto;margin-right:auto}
+.show{padding-block:120px}
+.cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:20px;margin-top:52px}
+.cards .card{grid-column:span 2}
+.cards .card:nth-child(n+4){grid-column:span 3}
+.card{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;color:inherit;text-decoration:none;box-shadow:var(--shadow);transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-3px);border-color:var(--line2)}
+.card img{display:block;width:100%;height:auto;aspect-ratio:8/5;object-fit:cover;object-position:top;border-bottom:1px solid var(--line);background:#f4f5f4}
+.card .body{padding:20px 22px 22px;display:flex;flex-direction:column;gap:10px;flex:1}
+.card .kicker{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--brand)}
+.card h3{margin:0;font-size:19px;line-height:1.5}
+.card p{margin:0;font-size:14px;color:var(--ink2);line-height:1.85}
+.card .stat{display:flex;align-items:baseline;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
+.card .stat b{font-size:24px;font-weight:800;color:var(--heat);font-variant-numeric:tabular-nums}
+.card .stat small{font-size:12px;color:var(--muted)}
+.card .go{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:700;color:var(--brand)}
+svg.i{flex:none}
+.way-ico{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;color:var(--brand);background:color-mix(in srgb,var(--brand) 12%,transparent)}
+.index .ar,.linkrow .ar{display:grid;place-items:center}
+.index a:hover .ar,.linkrow a:hover .ar{color:var(--brand)}
 
-/* table */
-.tbl{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0 0;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.tbl th,.tbl td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
-.tbl tr:last-child td{border-bottom:none}
-.tbl th{background:var(--surface2);font-weight:600;color:var(--ink2);font-size:13px}
-.tbl-wrap{overflow-x:auto}
+/* start */
+.start{padding-block:110px;background:var(--bg2)}
+.ways{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:48px}
+.way{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.way .kicker{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--brand)}
+.way h3{margin:0;font-size:21px}
+.way p{margin:0;font-size:14px;color:var(--ink2);line-height:1.85}
+.way pre{margin:auto 0 0;background:var(--panel);color:var(--panel-ink);border-radius:9px;padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.75;overflow-x:auto;white-space:pre}
+.way .copy{align-self:flex-start}
+.way pre.wrap{white-space:pre-wrap;word-break:break-all}
+.way .rec{display:inline-block;font-size:10.5px;font-weight:700;background:var(--heat);color:#fff;border-radius:4px;padding:0 6px;margin-left:8px;vertical-align:3px;letter-spacing:.04em}
 
-/* credit */
-.credit{background:var(--surface);border-left:3px solid var(--cool);padding:12px 16px;font-size:14px;color:var(--ink2);border-radius:0 8px 8px 0;margin:12px 0 0}
+/* unofficial notice */
+.unofficial{display:flex;align-items:flex-start;gap:10px;margin:18px 0 0;width:fit-content;padding:10px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);font-size:13px;line-height:1.7;color:var(--ink2);max-width:100%}
+.badge{flex:none;font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--heat);border:1px solid currentColor;border-radius:5px;padding:0 7px;line-height:1.7;margin-top:1px}
 
-footer{margin:88px 0 0;padding:28px 0 40px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
-footer p{margin:0 0 .5em}
-footer a{color:var(--ink2)}
+/* document tree */
+.tree{display:flex;flex-direction:column;padding:12px 10px 4px}
+.node{display:flex;justify-content:space-between;gap:12px;align-items:baseline;width:100%;text-align:left;font:inherit;background:transparent;border:0;border-radius:7px;padding:7px 14px;color:var(--panel-muted);cursor:pointer;transition:background .25s,color .25s}
+.node .f{font-family:var(--mono);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.node .br{color:rgba(255,255,255,.25)}
+.node .t{font-size:11.5px;flex:none}
+.node.read{color:#b9c6d2}
+.node.read .f::after{content:" ✓";color:var(--p-green)}
+.node.on{background:rgba(134,182,239,.16);color:var(--panel-ink)}
+.node.on .t{color:var(--p-blue)}
+.node:hover{background:rgba(255,255,255,.06)}
+.tree-say{margin:6px 18px 18px;padding:12px 14px;border-radius:9px;background:var(--panel2);font-size:13px;line-height:1.8;color:var(--panel-ink);min-height:84px}
+.tree-say b{display:block;font-family:var(--mono);font-size:11.5px;color:var(--p-blue);font-weight:600;margin-bottom:2px}
 
-@media (max-width:860px){
-  .facts{grid-template-columns:repeat(2,1fr)}
-  .show{grid-template-columns:1fr}
-  .item{display:grid;grid-template-columns:minmax(0,1fr)}
-  .flow{grid-template-columns:1fr 1fr}
-  .flow li{border-radius:0!important;border-left:1px solid var(--line)!important}
-  .flow li:nth-child(n+3){border-top:none}
-  .flow li:nth-child(even){border-left:none!important}
-  .flow li:first-child{border-radius:10px 0 0 0!important}
-  .flow li:nth-child(2){border-radius:0 10px 0 0!important}
-  .flow li:nth-child(3){border-radius:0 0 0 10px!important}
-  .flow li:last-child{border-radius:0 0 10px 0!important}
-  .ways{grid-template-columns:minmax(0,1fr)}
+/* license list in the band */
+.band .band-grid p.raw{margin:28px 0 0;padding:18px 20px;border:1px solid rgba(255,255,255,.14);border-left:3px solid var(--band-ink);border-radius:10px;background:rgba(255,255,255,.05);font-size:15px;line-height:1.95}
+.band .band-grid p.raw b{display:block;font-size:17px;margin-bottom:6px}
+.lic{margin:36px 0 0;display:grid;gap:10px;font-size:14px;line-height:1.8}
+.lic div{display:grid;grid-template-columns:8em minmax(0,1fr);gap:16px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12)}
+.lic dt{color:var(--band-muted);font-weight:700}
+.lic dd{margin:0;color:var(--band-ink)}
+.lic a{color:var(--band-ink)}
+
+/* links */
+.links{padding-block:110px}
+.linkrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:44px;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2)}
+.linkrow a{display:grid;grid-template-columns:auto 1fr auto;gap:4px 14px;padding:26px 24px;color:var(--ink);text-decoration:none}
+.linkrow a+a{border-left:1px solid var(--line2)}
+.linkrow a:hover{background:var(--surface)}
+.linkrow .n{font-size:12px;font-weight:800;color:var(--brand);padding-top:6px}
+.linkrow b{font-size:19px}
+.linkrow small{grid-column:2;color:var(--muted);font-size:13px}
+.linkrow .ar{grid-row:1;grid-column:3;color:var(--muted)}
+
+footer{border-top:1px solid var(--line);padding-block:36px 48px;font-size:12.5px;color:var(--muted)}
+footer .in{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between;align-items:flex-start}
+footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
+footer a{color:var(--ink2);text-decoration:none}
+footer a:hover{text-decoration:underline}
+footer p{margin:0}
+
+@media (max-width:980px){
+  .hero-grid,.feat-grid,.feat.alt .feat-grid,.band-grid{grid-template-columns:minmax(0,1fr);gap:40px}
+  .feat.alt .feat-copy{order:0}
+  .cards,.ways{grid-template-columns:minmax(0,1fr)}
+  .cards{max-width:560px;margin-left:auto;margin-right:auto}
+  .cards .card,.cards .card:nth-child(n+4){grid-column:auto}
+  .feat,.show{padding-block:84px}
+  .band,.start,.links{padding-block:80px}
 }
-@media (max-width:560px){
-  .hero{padding-top:36px}
-  section{padding-top:56px}
-  .cards2{grid-template-columns:1fr}
-  .flow{grid-template-columns:1fr}
-  .flow li{border-left:1px solid var(--line)!important;border-radius:0!important}
-  .flow li+li{border-top:none}
-  .flow li:first-child{border-radius:10px 10px 0 0!important}
-  .flow li:last-child{border-radius:0 0 10px 10px!important}
-  .fact .v{font-size:24px}
-  .stripes{height:72px}
-  .stripes-cap span:nth-child(2){display:none}
-  .nav ul{gap:14px;font-size:13px}
+@media (max-width:680px){
+  .top nav a:not(.ico){display:none}
+  .top nav{gap:4px}
+  .logo{font-size:15px;white-space:nowrap}
+  .index,.linkrow{grid-template-columns:minmax(0,1fr)}
+  .index a+a,.linkrow a+a{border-left:0;border-top:1px solid var(--line2)}
+  .hero{padding-block:36px 0}
+  .brandline .mark{width:46px;height:46px}
+  .brandline b{font-size:24px}
+  .nums b{font-size:20px}
+  .nums div{padding:14px}
+  .nums{grid-template-columns:minmax(0,1fr)}
+  .lic div{grid-template-columns:minmax(0,1fr);gap:2px}
+  .node .t{display:none}
+  .mapinfo .yr{font-size:32px}
+  .cap{flex-direction:column;gap:8px}
 }
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.item{transition:none}}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .caret{animation:none}
+  .card{transition:none}
+}
 </style>
-</head>
-<body>
 
-<nav class="nav" aria-label="ページ内の移動">
-  <div class="wrap">
-    <a class="brand" href="#top">japan-weather</a>
-    <ul>
-      <li><a href="#what">これは何か</a></li>
-      <li><a href="#why">なぜ</a></li>
-      <li><a href="#ai">AI で使う</a></li>
-      <li><a href="#showroom">分析の例</a></li>
-      <li><a href="#data">データ</a></li>
-      <li><a href="#license">ライセンス</a></li>
-    </ul>
-  </div>
-</nav>
-
-<main id="top">
-<header class="hero">
-  <div class="wrap">
-    <p class="eyebrow">オープンデータセット ＋ オープンソースの取得ツール</p>
-    <h1><span class="nw">気象庁の</span> <span class="nw">150 年分の</span><span class="nw">観測記録を、</span><br><span class="em"><span class="nw">AI がすぐ</span><span class="nw">分析できる形に。</span></span></h1>
-    <p class="lede">気象庁が公開している「過去の気象データ」から、全国の気象台とアメダス、約 1,700 地点の日別値と時別値をすべて取得し、Parquet 形式のデータセットにまとめました。Hugging Face で公開し、毎日更新しています。AI エージェント向けの説明書も付いているので、URL を一つ渡すだけで、何十年分ものデータを使った調査や分析を任せられます。</p>
-    <div class="cta">
-      <a class="btn primary" href="https://huggingface.co/datasets/hotchpotch/japan-weather">データセット <small>Hugging Face</small></a>
-      <a class="btn" href="https://github.com/hotchpotch/japan-weather-dataset">ソースコード <small>GitHub</small></a>
-      <a class="btn" href="llms.txt">AI 向けの入口 <small>llms.txt</small></a>
-    </div>
-
-    <figure class="stripes-box" style="margin-left:0;margin-right:0">
-      <svg class="stripes" viewBox="0 0 128 1" preserveAspectRatio="none" role="img" aria-label="日本の年平均気温の偏差（15地点平均、1898〜2025年）。青は1991〜2020年の平均より低い年、赤は高い年。"><rect x="0" width="1.04" height="1" fill="#256abe"><title>1898年 -1.03℃</title></rect><rect x="1" width="1.04" height="1" fill="#1e5faf"><title>1899年 -1.10℃</title></rect><rect x="2" width="1.04" height="1" fill="#103d76"><title>1900年 -1.35℃</title></rect><rect x="3" width="1.04" height="1" fill="#11417d"><title>1901年 -1.32℃</title></rect><rect x="4" width="1.04" height="1" fill="#113f7b"><title>1902年 -1.33℃</title></rect><rect x="5" width="1.04" height="1" fill="#2265b7"><title>1903年 -1.06℃</title></rect><rect x="6" width="1.04" height="1" fill="#1a58a4"><title>1904年 -1.15℃</title></rect><rect x="7" width="1.04" height="1" fill="#154a8d"><title>1905年 -1.25℃</title></rect><rect x="8" width="1.04" height="1" fill="#0d366b"><title>1906年 -1.62℃</title></rect><rect x="9" width="1.04" height="1" fill="#0d366b"><title>1907年 -1.51℃</title></rect><rect x="10" width="1.04" height="1" fill="#0d366b"><title>1908年 -1.74℃</title></rect><rect x="11" width="1.04" height="1" fill="#0d366b"><title>1909年 -1.43℃</title></rect><rect x="12" width="1.04" height="1" fill="#0d366b"><title>1910年 -1.51℃</title></rect><rect x="13" width="1.04" height="1" fill="#2970c6"><title>1911年 -0.99℃</title></rect><rect x="14" width="1.04" height="1" fill="#0d366b"><title>1912年 -1.41℃</title></rect><rect x="15" width="1.04" height="1" fill="#0d366b"><title>1913年 -1.88℃</title></rect><rect x="16" width="1.04" height="1" fill="#95bff2"><title>1914年 -0.50℃</title></rect><rect x="17" width="1.04" height="1" fill="#3885e3"><title>1915年 -0.85℃</title></rect><rect x="18" width="1.04" height="1" fill="#a7caf5"><title>1916年 -0.43℃</title></rect><rect x="19" width="1.04" height="1" fill="#0d366b"><title>1917年 -1.61℃</title></rect><rect x="20" width="1.04" height="1" fill="#0e3970"><title>1918年 -1.38℃</title></rect><rect x="21" width="1.04" height="1" fill="#256abe"><title>1919年 -1.03℃</title></rect><rect x="22" width="1.04" height="1" fill="#448ee6"><title>1920年 -0.80℃</title></rect><rect x="23" width="1.04" height="1" fill="#0e3970"><title>1921年 -1.38℃</title></rect><rect x="24" width="1.04" height="1" fill="#3682df"><title>1922年 -0.87℃</title></rect><rect x="25" width="1.04" height="1" fill="#2265b7"><title>1923年 -1.06℃</title></rect><rect x="26" width="1.04" height="1" fill="#124482"><title>1924年 -1.30℃</title></rect><rect x="27" width="1.04" height="1" fill="#164c90"><title>1925年 -1.24℃</title></rect><rect x="28" width="1.04" height="1" fill="#0d366b"><title>1926年 -1.62℃</title></rect><rect x="29" width="1.04" height="1" fill="#164d92"><title>1927年 -1.23℃</title></rect><rect x="30" width="1.04" height="1" fill="#327cd6"><title>1928年 -0.91℃</title></rect><rect x="31" width="1.04" height="1" fill="#1a57a2"><title>1929年 -1.16℃</title></rect><rect x="32" width="1.04" height="1" fill="#76aced"><title>1930年 -0.62℃</title></rect><rect x="33" width="1.04" height="1" fill="#113f7b"><title>1931年 -1.33℃</title></rect><rect x="34" width="1.04" height="1" fill="#276dc2"><title>1932年 -1.01℃</title></rect><rect x="35" width="1.04" height="1" fill="#2f78d0"><title>1933年 -0.94℃</title></rect><rect x="36" width="1.04" height="1" fill="#0d366b"><title>1934年 -1.43℃</title></rect><rect x="37" width="1.04" height="1" fill="#2367b9"><title>1935年 -1.05℃</title></rect><rect x="38" width="1.04" height="1" fill="#0d366b"><title>1936年 -1.40℃</title></rect><rect x="39" width="1.04" height="1" fill="#6aa5eb"><title>1937年 -0.66℃</title></rect><rect x="40" width="1.04" height="1" fill="#3987e5"><title>1938年 -0.84℃</title></rect><rect x="41" width="1.04" height="1" fill="#2a71c8"><title>1939年 -0.98℃</title></rect><rect x="42" width="1.04" height="1" fill="#1a58a4"><title>1940年 -1.15℃</title></rect><rect x="43" width="1.04" height="1" fill="#1f61b1"><title>1941年 -1.09℃</title></rect><rect x="44" width="1.04" height="1" fill="#2c73ca"><title>1942年 -0.97℃</title></rect><rect x="45" width="1.04" height="1" fill="#1a58a4"><title>1943年 -1.15℃</title></rect><rect x="46" width="1.04" height="1" fill="#0e3970"><title>1944年 -1.38℃</title></rect><rect x="47" width="1.04" height="1" fill="#0d366b"><title>1945年 -1.86℃</title></rect><rect x="48" width="1.04" height="1" fill="#6aa5eb"><title>1946年 -0.66℃</title></rect><rect x="49" width="1.04" height="1" fill="#0d366b"><title>1947年 -1.72℃</title></rect><rect x="50" width="1.04" height="1" fill="#b4d2f7"><title>1948年 -0.38℃</title></rect><rect x="51" width="1.04" height="1" fill="#2e76ce"><title>1949年 -0.95℃</title></rect><rect x="52" width="1.04" height="1" fill="#80b3ee"><title>1950年 -0.58℃</title></rect><rect x="53" width="1.04" height="1" fill="#317bd4"><title>1951年 -0.92℃</title></rect><rect x="54" width="1.04" height="1" fill="#2468bc"><title>1952年 -1.04℃</title></rect><rect x="55" width="1.04" height="1" fill="#256abe"><title>1953年 -1.03℃</title></rect><rect x="56" width="1.04" height="1" fill="#3e8ae6"><title>1954年 -0.82℃</title></rect><rect x="57" width="1.04" height="1" fill="#aaccf5"><title>1955年 -0.42℃</title></rect><rect x="58" width="1.04" height="1" fill="#2468bc"><title>1956年 -1.04℃</title></rect><rect x="59" width="1.04" height="1" fill="#2367b9"><title>1957年 -1.05℃</title></rect><rect x="60" width="1.04" height="1" fill="#80b3ee"><title>1958年 -0.58℃</title></rect><rect x="61" width="1.04" height="1" fill="#d8e6f6"><title>1959年 -0.18℃</title></rect><rect x="62" width="1.04" height="1" fill="#90bcf1"><title>1960年 -0.52℃</title></rect><rect x="63" width="1.04" height="1" fill="#dfe9f3"><title>1961年 -0.12℃</title></rect><rect x="64" width="1.04" height="1" fill="#68a4eb"><title>1962年 -0.67℃</title></rect><rect x="65" width="1.04" height="1" fill="#2f78d0"><title>1963年 -0.94℃</title></rect><rect x="66" width="1.04" height="1" fill="#7eb1ee"><title>1964年 -0.59℃</title></rect><rect x="67" width="1.04" height="1" fill="#134686"><title>1965年 -1.28℃</title></rect><rect x="68" width="1.04" height="1" fill="#3e8ae6"><title>1966年 -0.82℃</title></rect><rect x="69" width="1.04" height="1" fill="#4c93e8"><title>1967年 -0.77℃</title></rect><rect x="70" width="1.04" height="1" fill="#3079d2"><title>1968年 -0.93℃</title></rect><rect x="71" width="1.04" height="1" fill="#2062b3"><title>1969年 -1.08℃</title></rect><rect x="72" width="1.04" height="1" fill="#2367b9"><title>1970年 -1.05℃</title></rect><rect x="73" width="1.04" height="1" fill="#2c73ca"><title>1971年 -0.97℃</title></rect><rect x="74" width="1.04" height="1" fill="#a4c9f4"><title>1972年 -0.44℃</title></rect><rect x="75" width="1.04" height="1" fill="#7eb1ee"><title>1973年 -0.59℃</title></rect><rect x="76" width="1.04" height="1" fill="#175096"><title>1974年 -1.21℃</title></rect><rect x="77" width="1.04" height="1" fill="#70a9ec"><title>1975年 -0.64℃</title></rect><rect x="78" width="1.04" height="1" fill="#1955a0"><title>1976年 -1.17℃</title></rect><rect x="79" width="1.04" height="1" fill="#5d9dea"><title>1977年 -0.71℃</title></rect><rect x="80" width="1.04" height="1" fill="#9fc6f3"><title>1978年 -0.46℃</title></rect><rect x="81" width="1.04" height="1" fill="#e2eaf2"><title>1979年 -0.09℃</title></rect><rect x="82" width="1.04" height="1" fill="#2062b3"><title>1980年 -1.08℃</title></rect><rect x="83" width="1.04" height="1" fill="#134686"><title>1981年 -1.28℃</title></rect><rect x="84" width="1.04" height="1" fill="#76aced"><title>1982年 -0.62℃</title></rect><rect x="85" width="1.04" height="1" fill="#478fe7"><title>1983年 -0.79℃</title></rect><rect x="86" width="1.04" height="1" fill="#134686"><title>1984年 -1.28℃</title></rect><rect x="87" width="1.04" height="1" fill="#68a4eb"><title>1985年 -0.67℃</title></rect><rect x="88" width="1.04" height="1" fill="#154a8d"><title>1986年 -1.25℃</title></rect><rect x="89" width="1.04" height="1" fill="#a7caf5"><title>1987年 -0.43℃</title></rect><rect x="90" width="1.04" height="1" fill="#2e76ce"><title>1988年 -0.95℃</title></rect><rect x="91" width="1.04" height="1" fill="#dce8f4"><title>1989年 -0.14℃</title></rect><rect x="92" width="1.04" height="1" fill="#f5a38f"><title>1990年 +0.48℃</title></rect><rect x="93" width="1.04" height="1" fill="#e6ecf0"><title>1991年 -0.05℃</title></rect><rect x="94" width="1.04" height="1" fill="#afcff6"><title>1992年 -0.40℃</title></rect><rect x="95" width="1.04" height="1" fill="#418ce6"><title>1993年 -0.81℃</title></rect><rect x="96" width="1.04" height="1" fill="#fad1c5"><title>1994年 +0.27℃</title></rect><rect x="97" width="1.04" height="1" fill="#98c1f2"><title>1995年 -0.49℃</title></rect><rect x="98" width="1.04" height="1" fill="#3c89e5"><title>1996年 -0.83℃</title></rect><rect x="99" width="1.04" height="1" fill="#d6e5f7"><title>1997年 -0.20℃</title></rect><rect x="100" width="1.04" height="1" fill="#f5a794"><title>1998年 +0.46℃</title></rect><rect x="101" width="1.04" height="1" fill="#f7d9d0"><title>1999年 +0.20℃</title></rect><rect x="102" width="1.04" height="1" fill="#e9edee"><title>2000年 -0.03℃</title></rect><rect x="103" width="1.04" height="1" fill="#b9d5f8"><title>2001年 -0.36℃</title></rect><rect x="104" width="1.04" height="1" fill="#ebeeee"><title>2002年 -0.01℃</title></rect><rect x="105" width="1.04" height="1" fill="#b6d4f7"><title>2003年 -0.37℃</title></rect><rect x="106" width="1.04" height="1" fill="#f5a794"><title>2004年 +0.46℃</title></rect><rect x="107" width="1.04" height="1" fill="#c3dcf9"><title>2005年 -0.32℃</title></rect><rect x="108" width="1.04" height="1" fill="#e0e9f2"><title>2006年 -0.11℃</title></rect><rect x="109" width="1.04" height="1" fill="#faccbf"><title>2007年 +0.30℃</title></rect><rect x="110" width="1.04" height="1" fill="#e3ebf1"><title>2008年 -0.08℃</title></rect><rect x="111" width="1.04" height="1" fill="#eceeed"><title>2009年 -0.00℃</title></rect><rect x="112" width="1.04" height="1" fill="#faccbf"><title>2010年 +0.30℃</title></rect><rect x="113" width="1.04" height="1" fill="#d9e7f6"><title>2011年 -0.17℃</title></rect><rect x="114" width="1.04" height="1" fill="#cfe3fa"><title>2012年 -0.26℃</title></rect><rect x="115" width="1.04" height="1" fill="#efe9e6"><title>2013年 +0.05℃</title></rect><rect x="116" width="1.04" height="1" fill="#d9e7f6"><title>2014年 -0.17℃</title></rect><rect x="117" width="1.04" height="1" fill="#f7b7a7"><title>2015年 +0.39℃</title></rect><rect x="118" width="1.04" height="1" fill="#f18f78"><title>2016年 +0.57℃</title></rect><rect x="119" width="1.04" height="1" fill="#e6ecf0"><title>2017年 -0.05℃</title></rect><rect x="120" width="1.04" height="1" fill="#f8baaa"><title>2018年 +0.38℃</title></rect><rect x="121" width="1.04" height="1" fill="#ee856f"><title>2019年 +0.62℃</title></rect><rect x="122" width="1.04" height="1" fill="#ec7f69"><title>2020年 +0.65℃</title></rect><rect x="123" width="1.04" height="1" fill="#ef8771"><title>2021年 +0.61℃</title></rect><rect x="124" width="1.04" height="1" fill="#ef8972"><title>2022年 +0.60℃</title></rect><rect x="125" width="1.04" height="1" fill="#95231c"><title>2023年 +1.28℃</title></rect><rect x="126" width="1.04" height="1" fill="#7a1712"><title>2024年 +1.47℃</title></rect><rect x="127" width="1.04" height="1" fill="#a22821"><title>2025年 +1.22℃</title></rect></svg>
-      <figcaption class="stripes-cap"><span>1898</span><span>日本の年平均気温の偏差（気象庁が全国の平均に使う 15 地点、1991〜2020 年の平均との差）。このデータセットから計算</span><span>2025</span></figcaption>
-    </figure>
-
-    <div class="facts">
-      <div class="fact"><div class="v tab">1872<small>年から</small></div><div class="l">日別値の始まり。時別値は 1885 年から、昨日まで</div></div>
-      <div class="fact"><div class="v tab">1,678<small>地点</small></div><div class="l">気象台など 159、アメダス 1,519（廃止した地点を含む）</div></div>
-      <div class="fact"><div class="v tab">約6億<small>行</small></div><div class="l">時別値。日別値は約 2,600 万行。合わせて約 2 GB</div></div>
-      <div class="fact"><div class="v">毎日<small>更新</small></div><div class="l">GitHub Actions で自動更新。月に一度、確定した値で取り直す</div></div>
-    </div>
+<header class="top">
+  <div class="in">
+    <a class="logo" href="#top"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>japan-weather-dataset</a>
+    <nav aria-label="ページ内">
+      <a href="#features">特徴</a>
+      <a href="#showroom">分析の例</a>
+      <a class="ico" href="https://github.com/hotchpotch/japan-weather-dataset" aria-label="GitHub" title="GitHub：hotchpotch/japan-weather-dataset"><svg width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+      <a class="ico" href="https://huggingface.co/datasets/hotchpotch/japan-weather" aria-label="Hugging Face" title="Hugging Face：hotchpotch/japan-weather"><svg width="23" height="21" viewBox="0 0 95 88" fill="none" aria-hidden="true"><path fill="#FFD21E" d="M47.21 76.5a34.75 34.75 0 1 0 0-69.5 34.75 34.75 0 0 0 0 69.5Z"/> <path fill="#FF9D0B" d="M81.96 41.75a34.75 34.75 0 1 0-69.5 0 34.75 34.75 0 0 0 69.5 0Zm-73.5 0a38.75 38.75 0 1 1 77.5 0 38.75 38.75 0 0 1-77.5 0Z"/> <path fill="#3A3B45" d="M58.5 32.3c1.28.44 1.78 3.06 3.07 2.38a5 5 0 1 0-6.76-2.07c.61 1.15 2.55-.72 3.7-.32ZM34.95 32.3c-1.28.44-1.79 3.06-3.07 2.38a5 5 0 1 1 6.76-2.07c-.61 1.15-2.56-.72-3.7-.32Z"/> <path fill="#FF323D" d="M46.96 56.29c9.83 0 13-8.76 13-13.26 0-2.34-1.57-1.6-4.09-.36-2.33 1.15-5.46 2.74-8.9 2.74-7.19 0-13-6.88-13-2.38s3.16 13.26 13 13.26Z"/> <path fill="#3A3B45" fill-rule="evenodd" d="M39.43 54a8.7 8.7 0 0 1 5.3-4.49c.4-.12.81.57 1.24 1.28.4.68.82 1.37 1.24 1.37.45 0 .9-.68 1.33-1.35.45-.7.89-1.38 1.32-1.25a8.61 8.61 0 0 1 5 4.17c3.73-2.94 5.1-7.74 5.1-10.7 0-2.34-1.57-1.6-4.09-.36l-.14.07c-2.31 1.15-5.39 2.67-8.77 2.67s-6.45-1.52-8.77-2.67c-2.6-1.29-4.23-2.1-4.23.29 0 3.05 1.46 8.06 5.47 10.97Z" clip-rule="evenodd"/> <path fill="#FF9D0B" d="M70.71 37a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5ZM24.21 37a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5ZM17.52 48c-1.62 0-3.06.66-4.07 1.87a5.97 5.97 0 0 0-1.33 3.76 7.1 7.1 0 0 0-1.94-.3c-1.55 0-2.95.59-3.94 1.66a5.8 5.8 0 0 0-.8 7 5.3 5.3 0 0 0-1.79 2.82c-.24.9-.48 2.8.8 4.74a5.22 5.22 0 0 0-.37 5.02c1.02 2.32 3.57 4.14 8.52 6.1 3.07 1.22 5.89 2 5.91 2.01a44.33 44.33 0 0 0 10.93 1.6c5.86 0 10.05-1.8 12.46-5.34 3.88-5.69 3.33-10.9-1.7-15.92-2.77-2.78-4.62-6.87-5-7.77-.78-2.66-2.84-5.62-6.25-5.62a5.7 5.7 0 0 0-4.6 2.46c-1-1.26-1.98-2.25-2.86-2.82A7.4 7.4 0 0 0 17.52 48Zm0 4c.51 0 1.14.22 1.82.65 2.14 1.36 6.25 8.43 7.76 11.18.5.92 1.37 1.31 2.14 1.31 1.55 0 2.75-1.53.15-3.48-3.92-2.93-2.55-7.72-.68-8.01.08-.02.17-.02.24-.02 1.7 0 2.45 2.93 2.45 2.93s2.2 5.52 5.98 9.3c3.77 3.77 3.97 6.8 1.22 10.83-1.88 2.75-5.47 3.58-9.16 3.58-3.81 0-7.73-.9-9.92-1.46-.11-.03-13.45-3.8-11.76-7 .28-.54.75-.76 1.34-.76 2.38 0 6.7 3.54 8.57 3.54.41 0 .7-.17.83-.6.79-2.85-12.06-4.05-10.98-8.17.2-.73.71-1.02 1.44-1.02 3.14 0 10.2 5.53 11.68 5.53.11 0 .2-.03.24-.1.74-1.2.33-2.04-4.9-5.2-5.21-3.16-8.88-5.06-6.8-7.33.24-.26.58-.38 1-.38 3.17 0 10.66 6.82 10.66 6.82s2.02 2.1 3.25 2.1c.28 0 .52-.1.68-.38.86-1.46-8.06-8.22-8.56-11.01-.34-1.9.24-2.85 1.31-2.85Z"/> <path fill="#FFD21E" d="M38.6 76.69c2.75-4.04 2.55-7.07-1.22-10.84-3.78-3.77-5.98-9.3-5.98-9.3s-.82-3.2-2.69-2.9c-1.87.3-3.24 5.08.68 8.01 3.91 2.93-.78 4.92-2.29 2.17-1.5-2.75-5.62-9.82-7.76-11.18-2.13-1.35-3.63-.6-3.13 2.2.5 2.79 9.43 9.55 8.56 11-.87 1.47-3.93-1.71-3.93-1.71s-9.57-8.71-11.66-6.44c-2.08 2.27 1.59 4.17 6.8 7.33 5.23 3.16 5.64 4 4.9 5.2-.75 1.2-12.28-8.53-13.36-4.4-1.08 4.11 11.77 5.3 10.98 8.15-.8 2.85-9.06-5.38-10.74-2.18-1.7 3.21 11.65 6.98 11.76 7.01 4.3 1.12 15.25 3.49 19.08-2.12Z"/> <path fill="#FF9D0B" d="M77.4 48c1.62 0 3.07.66 4.07 1.87a5.97 5.97 0 0 1 1.33 3.76 7.1 7.1 0 0 1 1.95-.3c1.55 0 2.95.59 3.94 1.66a5.8 5.8 0 0 1 .8 7 5.3 5.3 0 0 1 1.78 2.82c.24.9.48 2.8-.8 4.74a5.22 5.22 0 0 1 .37 5.02c-1.02 2.32-3.57 4.14-8.51 6.1-3.08 1.22-5.9 2-5.92 2.01a44.33 44.33 0 0 1-10.93 1.6c-5.86 0-10.05-1.8-12.46-5.34-3.88-5.69-3.33-10.9 1.7-15.92 2.78-2.78 4.63-6.87 5.01-7.77.78-2.66 2.83-5.62 6.24-5.62a5.7 5.7 0 0 1 4.6 2.46c1-1.26 1.98-2.25 2.87-2.82A7.4 7.4 0 0 1 77.4 48Zm0 4c-.51 0-1.13.22-1.82.65-2.13 1.36-6.25 8.43-7.76 11.18a2.43 2.43 0 0 1-2.14 1.31c-1.54 0-2.75-1.53-.14-3.48 3.91-2.93 2.54-7.72.67-8.01a1.54 1.54 0 0 0-.24-.02c-1.7 0-2.45 2.93-2.45 2.93s-2.2 5.52-5.97 9.3c-3.78 3.77-3.98 6.8-1.22 10.83 1.87 2.75 5.47 3.58 9.15 3.58 3.82 0 7.73-.9 9.93-1.46.1-.03 13.45-3.8 11.76-7-.29-.54-.75-.76-1.34-.76-2.38 0-6.71 3.54-8.57 3.54-.42 0-.71-.17-.83-.6-.8-2.85 12.05-4.05 10.97-8.17-.19-.73-.7-1.02-1.44-1.02-3.14 0-10.2 5.53-11.68 5.53-.1 0-.19-.03-.23-.1-.74-1.2-.34-2.04 4.88-5.2 5.23-3.16 8.9-5.06 6.8-7.33-.23-.26-.57-.38-.98-.38-3.18 0-10.67 6.82-10.67 6.82s-2.02 2.1-3.24 2.1a.74.74 0 0 1-.68-.38c-.87-1.46 8.05-8.22 8.55-11.01.34-1.9-.24-2.85-1.31-2.85Z"/> <path fill="#FFD21E" d="M56.33 76.69c-2.75-4.04-2.56-7.07 1.22-10.84 3.77-3.77 5.97-9.3 5.97-9.3s.82-3.2 2.7-2.9c1.86.3 3.23 5.08-.68 8.01-3.92 2.93.78 4.92 2.28 2.17 1.51-2.75 5.63-9.82 7.76-11.18 2.13-1.35 3.64-.6 3.13 2.2-.5 2.79-9.42 9.55-8.55 11 .86 1.47 3.92-1.71 3.92-1.71s9.58-8.71 11.66-6.44c2.08 2.27-1.58 4.17-6.8 7.33-5.23 3.16-5.63 4-4.9 5.2.75 1.2 12.28-8.53 13.36-4.4 1.08 4.11-11.76 5.3-10.97 8.15.8 2.85 9.05-5.38 10.74-2.18 1.69 3.21-11.65 6.98-11.76 7.01-4.31 1.12-15.26 3.49-19.08-2.12Z"/></svg></a>
+      <a class="btn-s" href="#start">使ってみる<svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/> <path d="m19 12-7 7-7-7"/></svg></a>
+    </nav>
   </div>
 </header>
 
-<section id="what">
-  <div class="wrap">
-    <div class="sec-head"><span class="sec-no">01</span><h2>これは何か</h2></div>
-    <div class="read">
-      <p><b>japan-weather</b> は、気象庁の<a href="https://www.data.jma.go.jp/risk/obsdl/">「過去の気象データ・ダウンロード」</a>で公開されている地上観測の記録を、全地点・全期間にわたって集めたデータセットです。気温、降水量、積雪、風、日照、日射、湿度、気圧、雲量、天気概況など、日別値で 23 要素、時別値で 15 要素を収録しています。値ごとに気象庁の品質情報と均質番号（観測場所や方法が変わった区切り）も残しているので、長い期間を比べる分析にも使えます。</p>
-      <p>データは列指向の <a href="https://parquet.apache.org/">Parquet</a> 形式で、年ごと・月ごとのファイルに分けてあります。必要な年だけを手元に落とし、<a href="https://duckdb.org/">DuckDB</a> などで SQL を書けばすぐに集計できます。たとえば、東京の 2025 年 8 月の日最高気温は次の一行で取り出せます。</p>
-    </div>
-<pre><code>duckdb -c "SELECT date, temperature_max
-  FROM read_parquet('~/.cache/japan-weather/data/daily/*/*.parquet', hive_partitioning = false)
-  WHERE station_id = 's47662' AND date >= DATE '2025-08-01' ORDER BY date LIMIT 5"</code></pre>
-    <p class="note" style="margin-top:10px">データの取得から公開までを行う道具（Go で書いた <code>jwd</code>）も、MIT ライセンスのオープンソースとして公開しています。</p>
-  </div>
-</section>
-
-<section id="why">
-  <div class="wrap">
-    <div class="sec-head"><span class="sec-no">02</span><h2>なぜ作ったのか</h2></div>
-    <div class="read">
-      <p>気象庁は、明治時代からの観測記録を誰でも無料で取り出せるようにしています。とてもありがたい公開です。ただ、「過去の気象データ・ダウンロード」は画面で地点・要素・期間を選んで CSV を受け取る仕組みで、一度に受け取れる量には上限（地点 × 要素 × 日数で 20 万まで）があります。プログラム向けの API は公開されておらず、アメダスの JSON で手に入るのは直近の数日分だけです。</p>
-      <p>そのため、「全国で暑い日はどれだけ増えたか」「雪はどこで減ったか」のように、多くの地点の長い記録を横断する分析をしようとすると、まずデータを集めるだけで大仕事になります。全地点・全期間を集めると、要求は日別と時別を合わせて約 7 万回になりました。</p>
-      <p>このプロジェクトは、その収集を一度だけ丁寧に行い、結果を扱いやすい形で公開します。データの準備に時間を取られずに、問いを立てて確かめることに集中できるようにするのが目的です。AI エージェントと組み合わせれば、調査や分析を短い時間で何度も試せます。</p>
-    </div>
-
-    <h3>どのように集めて、更新しているか</h3>
-    <ol class="flow">
-      <li><b>気象庁から取得</b>要求は一度に一つだけ。応答のあとに約 6 秒の間隔を空け、混雑の合図があれば間隔を広げる。アクセスの制限や保守を検知したら、回避せずに止まる。</li>
-      <li><b>Parquet に整形</b>CSV を列の決まった表に直し、品質情報、現象なし情報、均質番号を値ごとに保存する。</li>
-      <li><b>Hugging Face に公開</b>年・月ごとのファイルと、地点表、均質番号の変化点表、更新の記録（manifest）を置く。</li>
-      <li><b>毎日・毎月の更新</b>GitHub Actions が定期的に最新の値を取り、変わったファイルだけを差し替える。</li>
-    </ol>
-
-    <div class="cards2">
-      <div class="card">
-        <h3>毎日の更新</h3>
-        <p class="when">毎朝（日本時間 5:17 に予約。GitHub の都合で数時間遅れることがある）</p>
-        <p>今月の分について、直近の数日を取り直し、昨日までの値を加えます。所要時間は 10 分ほどです。</p>
-        <a class="more" href="https://github.com/hotchpotch/japan-weather-dataset/actions/workflows/daily.yml">実行の記録（GitHub Actions）</a>
+<main id="top">
+<section class="hero">
+  <div class="in">
+    <div class="hero-grid">
+      <div>
+        <div class="brandline">
+          <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <div><b>japan-weather-dataset</b><span class="sub">OPEN WEATHER DATA FOR AI</span></div>
+        </div>
+        <h1><span class="nw">150年分の</span><span class="nw">気象データを、</span><br><span class="nw">簡単に分析する。</span></h1>
+        <p class="lead">気象庁が「<a href="https://www.data.jma.go.jp/risk/obsdl/">過去の気象データ・ダウンロード</a>」で公開している、全国の気象台とアメダス約1,700地点の観測記録を、全期間にわたって集め、分析しやすい形にまとめました。URLを一つ渡せば、AIが調べて答えます。</p>
+        <div class="cta-row">
+          <a class="cta" href="#start">
+            <svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/> <path d="m19 12-7 7-7-7"/></svg>
+            <span><b>使い方を見る</b><small>URLを渡す ・ スキル ・ SQL</small></span>
+          </a>
+        </div>
+        <div class="pills">
+          <span class="pill"><b class="tab">1872</b>年から</span>
+          <span class="pill"><b class="tab">1,678</b>地点</span>
+          <span class="pill">データは<b>毎日更新</b></span>
+        </div>
+        <p class="unofficial"><span class="badge">非公式</span>気象庁の公開データをもとにした、個人によるプロジェクトです。気象庁や政府とは関係ありません。</p>
       </div>
-      <div class="card">
-        <h3>毎月の更新</h3>
-        <p class="when">毎月 1 日（日本時間 20:00 に予約）</p>
-        <p>気象庁の値は、まず速報値として公開され、数日から数週間のうちに予告なく直されることがあります。そこで、月が終わったあとに直近 2 か月を取り直し、確定した値に置き換えてから年のファイルにまとめます。</p>
-        <a class="more" href="https://github.com/hotchpotch/japan-weather-dataset/actions/workflows/monthly.yml">実行の記録（GitHub Actions）</a>
-      </div>
-    </div>
-  </div>
-</section>
 
-<section id="ai">
-  <div class="wrap">
-    <div class="sec-head"><span class="sec-no">03</span><h2>AI に分析を頼む</h2></div>
-    <div class="read">
-      <p>データセットには、AI エージェント向けの説明書が付いています。データの範囲、日別値と時別値の使い分け、必要な部分だけをダウンロードする方法、列の意味、SQL の例、そして長い期間を比べるときの落とし穴（品質情報の扱い、観測場所の移転、2003 年のアメダスの最高・最低気温の段差など）です。</p>
-      <p>Claude Code や Codex のように、コマンドを実行できる AI エージェントなら、質問と一緒に次の URL を渡すだけで始められます。</p>
+      <div>
+        <div class="panel" id="q-demo">
+          <div class="panel-head"><span>japan-weather-dataset / ask anything</span><span class="dots"><i></i><i></i><i></i></span></div>
+          <div class="qtabs" role="group" aria-label="質問を選ぶ">
+            <button type="button" aria-pressed="true" data-q="0">酷暑日</button>
+            <button type="button" aria-pressed="false" data-q="1">温暖化</button>
+            <button type="button" aria-pressed="false" data-q="2">猛暑日</button>
+            <button type="button" aria-pressed="false" data-q="3">熱帯夜</button>
+            <button type="button" aria-pressed="false" data-q="4">雪</button>
+            <button type="button" aria-pressed="false" data-q="5">避暑地</button>
+            <button type="button" aria-pressed="false" data-q="6">9月の雨</button>
+          </div>
+          <div class="term" id="q-term"></div>
+          <div class="viz">
+            <svg id="q-viz" viewBox="0 0 520 150" role="img" aria-label="選んだ質問の分析結果の図"></svg>
+            <div class="result-big" id="q-result"></div>
+          </div>
+        </div>
+        <div class="cap">
+          <span><b>AIへの質問から分析まで</b>エージェントの作業の流れを仮想的に再現したアニメーションです。図と数値は、このデータで実際に計算した結果です。上のボタンで問いを切り替えられます。</span>
+          <button class="toggle" type="button" data-pause="q">自動再生を停止</button>
+        </div>
+      </div>
     </div>
 
-    <div class="prompt" id="prompt">
-      <span class="label">プロンプトの例</span>
-      <button class="copy" type="button" data-copy="prompt-text">コピー</button>
-      <p id="prompt-text">日本で温暖化は本当に起きているの？過去の観測データから分析して。<br>次のデータを使うこと：<span class="url">https://hotchpotch.github.io/japan-weather-dataset/llms.txt</span></p>
-    </div>
-
-    <ol class="steps read">
-      <li>エージェントが <code>llms.txt</code> を読み、説明書（スキル）とデータの使い方を知る。</li>
-      <li>必要な年や要素のファイルだけを Hugging Face から手元に落とす（日別値の全体で約 215 MB）。</li>
-      <li>DuckDB で集計し、結果を表やグラフ、ページにまとめる。</li>
-    </ol>
-    <p class="note read">ほかの問いの例：「この 50 年で猛暑日はどの地域で増えた？」「札幌の初雪の日は遅くなっている？」「大雨の日は増えたのか、地点をそろえて確かめて」。分析の結果は、AI の解釈も含むので、元の数値と方法を確かめてから使ってください。</p>
-
-    <h3>使い方は三通り</h3>
-    <div class="ways">
-      <div class="card">
-        <h3>URL を渡す</h3>
-        <p>上のように <a href="llms.txt">llms.txt</a> の URL をプロンプトに入れる。準備は要らない。</p>
-      </div>
-      <div class="card">
-        <h3>スキルを入れる</h3>
-        <p><a href="https://agentskills.io/">Agent Skills</a> 形式。プロジェクトに入れておくと、気象の質問で自動的に使われる。</p>
-<pre><code>npx skills add \
-  hotchpotch/japan-weather-dataset \
-  --skill japan-weather</code></pre>
-      </div>
-      <div class="card">
-        <h3>自分で SQL を書く</h3>
-        <p>同梱の <code>sync.sh</code> で必要な部分を落とし、DuckDB や pandas、Polars で読む。手順は <a href="https://github.com/hotchpotch/japan-weather-dataset#using-the-dataset">README</a> にある。</p>
-      </div>
+    <div class="index" id="features">
+      <a href="#access"><span class="n">01</span><b>データへのアクセス</b><small>1,678地点、150年分</small><span class="ar"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10"/> <path d="M17 7v10H7"/></svg></span></a>
+      <a href="#ai"><span class="n">02</span><b>AIで分析</b><small>説明書つきのデータ</small><span class="ar"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10"/> <path d="M17 7v10H7"/></svg></span></a>
+      <a href="#open"><span class="n">03</span><b>公開データの活用</b><small>取得の方法とライセンス</small><span class="ar"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10"/> <path d="M17 7v10H7"/></svg></span></a>
     </div>
   </div>
 </section>
 
-<section id="showroom">
-  <div class="wrap">
-    <div class="sec-head"><span class="sec-no">04</span><h2>分析の例</h2></div>
-    <div class="read">
-      <p>AI エージェントがこのデータセットを使って分析し、一つのページにまとめた例です。どれも観測データだけから数え直したもので、方法と限界をページの最後に書いています。</p>
+<section class="feat" id="access">
+  <div class="in feat-grid">
+    <div class="feat-copy">
+      <p class="eyebrow">01 / Access</p>
+      <h2><span class="nw">150年分の</span><span class="nw">気象データへ</span><span class="nw">アクセス。</span></h2>
+      <p class="lead">1872年の函館から、1976年に始まったアメダスまで。気象台とアメダスの全1,678地点について、日別値（23要素）と時別値（15要素）を前日の分まで収録しています。気温、降水量、積雪、風、日照、日射、湿度、気圧、雲量、天気概況。データは毎日更新しています。</p>
+      <p class="lead" style="margin-top:14px">値ごとに品質情報と均質番号（観測場所や観測方法の変更を示す番号）を残しているので、長い期間の比較でも、移転や測り方の変更を考慮できます。</p>
+      <div class="mores">
+        <a class="more" href="https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/dataset.md">収録している列を見る<svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></a>
+      </div>
     </div>
-    <div class="show">
-      <a class="item" href="https://claude.ai/artifact/JbyAmikH7ZMZQzPmXi7dhN">
-        <img src="images/warming.webp" width="1200" height="750" loading="lazy" alt="「日本は本当に温暖化しているのか」のページ。年ごとの気温偏差を色の帯で示し、上昇率などの数値を並べている。">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><span>japan-weather-dataset / stations</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="mapbox">
+          <svg id="map" viewBox="0 0 205 226" role="img" aria-label="観測地点の地図。年を選ぶと、その年に日別値がある地点を点で表示する。"></svg>
+          <div class="mapinfo">
+            <div class="yr" id="map-yr">2026</div>
+            <div class="cnt"><span><i style="background:var(--p-amber)"></i>気象台など <b id="map-o">0</b></span><br><span><i style="background:var(--p-blue)"></i>アメダス <b id="map-a">0</b></span></div>
+            <div class="ev" id="map-ev"></div>
+          </div>
+        </div>
+        <div class="ctl">
+          <button type="button" id="map-play" aria-label="1872年から再生"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg></button>
+          <label for="map-range" class="ticks">1872</label>
+          <input type="range" id="map-range" min="1872" max="2026" value="2026" step="1">
+          <span class="ticks">2026</span>
+        </div>
+      </div>
+      <div class="cap">
+        <span><b>日別値のある地点</b>その年に日別値がある地点を表示します。スライダーで年を選べます。南鳥島と昭和基地は省略しています。</span>
+        <button class="toggle" type="button" data-pause="map">自動再生を停止</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="feat alt" id="ai">
+  <div class="in feat-grid">
+    <div class="feat-copy">
+      <p class="eyebrow">02 / For AI agents</p>
+      <h2><span class="nw">URLひとつで、</span><br><span class="nw">分析を任せる。</span></h2>
+      <p class="lead">AIエージェント向けの説明書（<a href="https://agentskills.io/">Agent Skills</a> 形式のスキル）を用意しています。データの範囲、必要な部分だけを取得する方法、列の意味、SQLの例、長い期間を比べるときの注意点までを説明しています。<a href="https://claude.com/product/claude-code">Claude Code</a> や <a href="https://openai.com/codex/">Codex</a> なら、質問と次のURLを渡すだけで、ダウンロードから集計、まとめまで進みます。</p>
+      <div class="prompt-copy">
+        <code id="prompt-text">日本で温暖化は本当に起きているの？過去の観測データから分析して。次のデータを使うこと：https://hotchpotch.github.io/japan-weather-dataset/llms.txt</code>
+        <button class="copy" type="button" data-copy="prompt-text"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>コピー</span></button>
+      </div>
+      <p class="note-s" style="margin-top:10px">コマンドを実行できるエージェントを想定しています。結果にはAIの解釈も含まれるので、数値と方法を確かめてから使ってください。</p>
+    </div>
+    <div>
+      <div class="panel" id="tree-demo">
+        <div class="panel-head"><span>llms.txt → skills/japan-weather</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="tree" id="tree" role="list"></div>
+        <div class="tree-say" id="tree-say" aria-live="polite"></div>
+      </div>
+      <div class="cap">
+        <span><b>AIが読む文書</b>llms.txt を起点に、エージェントが読む文書の流れを示しています。項目を選ぶと、その文書の内容を表示します。</span>
+        <button class="toggle" type="button" data-pause="tree">自動再生を停止</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="open">
+  <div class="in">
+    <div class="band-grid">
+      <div>
+        <p class="eyebrow">03 / Open data</p>
+        <h2>公開データの活用。</h2>
+        <p class="raw"><b>気象庁の観測値を、そのまま使える。</b>気象庁が公開している観測値を、値を変えずに収録しています。平均値や平年値のような集計済みの統計ではなく、実際の観測記録を使って分析できます。品質情報と、観測方法の変更点（均質番号）も含みます。</p>
+      </div>
+      <div>
+        <p>気象庁の「<a href="https://www.data.jma.go.jp/risk/obsdl/">過去の気象データ・ダウンロード</a>」は、誰でも無料で使える公開データです。ただ、画面で地点と期間を選んでCSVを受け取る仕組みで、1回に受け取れる量には上限があります。プログラム向けのAPIの提供はありません。</p>
+        <p>そこで、気象庁のサーバーに負荷をかけないよう、要求を1回ずつ間隔を空けて送り、全期間のデータを取得しました（要求は約7万回）。取得したデータは、分析に適した <a href="https://parquet.apache.org/">Parquet</a> 形式にまとめて <a href="https://huggingface.co/datasets/hotchpotch/japan-weather">Hugging Face</a> で公開しています。<a href="https://duckdb.org/">DuckDB</a> などを使えば、SQLですぐに集計できます。</p>
+        <a class="more" href="https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/source.md">取得の仕組みを読む<svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></a>
+      </div>
+    </div>
+    <div class="nums">
+      <div><b>約2,600万行</b><small>日別値（約215MB）</small></div>
+      <div><b>約6億行</b><small>時別値（約1.9GB）</small></div>
+      <div><b>約7万回</b><small>全期間の取得に送った要求</small></div>
+    </div>
+    <dl class="lic">
+      <div><dt>元データ</dt><dd>気象庁ホームページ「<a href="https://www.data.jma.go.jp/risk/obsdl/">過去の気象データ・ダウンロード</a>」（<a href="https://www.digital.go.jp/resources/open_data/public_data_license_v1.0">公共データ利用規約（第1.0版）</a>）</dd></div>
+      <div><dt>データセット</dt><dd><a href="https://creativecommons.org/licenses/by/4.0/deed.ja">CC BY 4.0</a>（公共データ利用規約は CC BY 4.0 と互換）。利用するときは出典の表示が必要です。書き方は<a href="https://huggingface.co/datasets/hotchpotch/japan-weather">データセットのカード</a>にあります。</dd></div>
+      <div><dt>データ取得ツール</dt><dd><a href="https://github.com/hotchpotch/japan-weather-dataset">hotchpotch/japan-weather-dataset</a>（GitHub、<a href="https://github.com/hotchpotch/japan-weather-dataset/blob/main/LICENSE">MIT License</a>）</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="show" id="showroom">
+  <div class="in">
+    <div class="center">
+      <p class="eyebrow">Showroom</p>
+      <h2>AIが確かめた、5つの問い。</h2>
+      <p class="lead">このデータを使ってAIエージェントが分析し、1つのページにまとめた例です。どれも観測データから数え直したもので、方法と限界をページの最後に書いています。</p>
+    </div>
+    <div class="cards">
+      <a class="card" href="analyses/warming/">
+        <img src="images/warming.webp" width="1200" height="750" loading="lazy" alt="「日本は本当に温暖化しているのか」のページ。年ごとの気温偏差の帯と、上昇率などの数値。">
         <div class="body">
+          <span class="kicker">WARMING</span>
           <h3>日本は本当に温暖化しているのか</h3>
-          <p>都市化の影響が小さい 15 地点の平均気温は、1898 年から 100 年あたり +1.43℃ のペースで上昇。1980 年以降にそろう 805 地点のすべてで気温が上がっていた。移転の補正、都市の除外、季節別の比較でも結論は同じ。気象庁の公表値も再現している。</p>
-          <div class="chips"><span class="chip">日別値 2,610 万行</span><span class="chip">地図のアニメーション</span></div>
-          <span class="go">ページを開く →</span>
+          <p>都市化の影響が小さい15地点で、1898年から気温が上昇していた。1980年以降のデータがそろう805地点でも、すべての地点で気温が上がっていた。移転の補正、都市の除外、季節ごとの比較でも結論は変わらない。</p>
+          <div class="stat"><b>+1.43℃</b><small>100年あたり（15地点、1898〜2025年）</small></div>
+          <span class="go">ページを開く<svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span>
         </div>
       </a>
-      <a class="item" href="https://claude.ai/artifact/BpufPmdg56PKiwUvTtU1Ao">
-        <img src="images/kokusho.webp" width="1200" height="750" loading="lazy" alt="「酷暑日は増えたのか」のページ。1927年以降の40℃以上の日を、1地点の1日を1つの四角として年ごとに積み上げた図。">
+      <a class="card" href="analyses/kokusho/">
+        <img src="images/kokusho.webp" width="1200" height="750" loading="lazy" alt="「酷暑日は増えたのか」のページ。1927年以降の40℃以上の日を年ごとに積み上げた図。">
         <div class="body">
+          <span class="kicker">EXTREME HEAT</span>
           <h3>酷暑日は増えたのか</h3>
-          <p>2026 年に名前が付いた「酷暑日」（最高気温 40℃ 以上）を 1927 年から数えると、延べ 144 回のうち 117 回が 2018 年以降の 9 年間。同じ 789 地点に限り、測り方の段差を補正しても、2003 年以降はそれ以前の約 7 倍。</p>
-          <div class="chips"><span class="chip">1927〜2026 年</span><span class="chip">段差の補正</span></div>
-          <span class="go">ページを開く →</span>
+          <p>2026年に「酷暑日」と名付けられた、最高気温40℃以上の日。1927年以降の延べ144回のうち、117回が2018年以降の9年間に集中していた。同じ789地点で測り方の段差を補正しても、約7倍に増えている。</p>
+          <div class="stat"><b>117 / 144</b><small>回が2018年以降</small></div>
+          <span class="go">ページを開く<svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span>
         </div>
       </a>
-      <a class="item" href="https://claude.ai/artifact/YDBJHEXQDVSpnhY5BVAfXb">
-        <img src="images/snow.webp" width="1200" height="750" loading="lazy" alt="「雪は、どこで減ったのか」のページ。真冬の気温で分けた3つの地域の、冬の最深積雪の変化を示している。">
+      <a class="card" href="analyses/snow/">
+        <img src="images/snow.webp" width="1200" height="750" loading="lazy" alt="「雪は、どこで減ったのか」のページ。真冬の気温で分けた3つの地域の最深積雪の変化。">
         <div class="body">
+          <span class="kicker">SNOW</span>
           <h3>雪は、どこで減ったのか</h3>
-          <p>冬の最深積雪は、真冬の平均気温が 2℃ を超える「暖かい雪国」（北陸・山陰の海沿いなど）で 28% 減った。北海道の大半などの「寒い雪国」では 4% 減にとどまる。降水量は変わらないまま、雪が雨に変わっていた。</p>
-          <div class="chips"><span class="chip">気象台 65 地点</span><span class="chip">1962〜2026 年の冬</span></div>
-          <span class="go">ページを開く →</span>
+          <p>深い雪が大きく減ったのは、真冬の平均気温が2℃を超える「暖かい雪国」（北陸・山陰の海沿いなど）だった。北海道の大半では、ほとんど減っていない。</p>
+          <div class="stat"><b>−28%</b><small>暖かい雪国の冬の最深積雪</small></div>
+          <span class="go">ページを開く<svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span>
+        </div>
+      </a>
+      <a class="card" href="analyses/hisho/">
+        <img src="images/hisho.webp" width="1200" height="750" loading="lazy" alt="「避暑地は、まだ避暑地なのか」のページ。標高別の真夏日の変化と、軽井沢で最低気温が20℃を下回らなかった夜の数の図。">
+        <div class="body">
+          <span class="kicker">SUMMER RESORTS</span>
+          <h3>避暑地は、まだ避暑地なのか</h3>
+          <p>全国18の避暑地・別荘地を、1976〜95年と2016〜25年で比べた。標高1,200m以上の高原は、真夏日が今も年0〜3日。軽井沢など標高700〜1,000mの別荘地では大きく増え、今の軽井沢の夏は40年前の青森や札幌の夏に近い。</p>
+          <div class="stat"><b>2〜10日 → 8〜30日</b><small>標高700〜1,000mの別荘地の真夏日（年）</small></div>
+          <span class="go">ページを開く<svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span>
+        </div>
+      </a>
+      <a class="card" href="analyses/sept/">
+        <img src="images/sept.webp" width="1200" height="750" loading="lazy" alt="「晴れなかった9月」のページ。1988年と2026年の9月の日ごとの日照時間と降水量の図。">
+        <div class="body">
+          <span class="kicker">RAINY SEPTEMBER</span>
+          <h3>晴れなかった9月</h3>
+          <p>2026年9月の関東は、日照時間が平年の37%で、1961年以降で最も少なかった。ただし1988年9月もほぼ同じで、「観測史上初」とは言えない。違いは雨の量で、降水量は1961年以降で最も多かった。</p>
+          <div class="stat"><b>2.6倍</b><small>平年に対する降水量（関東の7地点の平均）</small></div>
+          <span class="go">ページを開く<svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span>
         </div>
       </a>
     </div>
   </div>
 </section>
 
-<section id="data">
-  <div class="wrap">
-    <div class="sec-head"><span class="sec-no">05</span><h2>データの中身</h2></div>
-    <div class="tbl-wrap">
-    <table class="tbl">
-      <thead><tr><th>部分</th><th>期間</th><th>内容</th></tr></thead>
-      <tbody>
-        <tr><td><code>daily</code>（日別値）</td><td class="tab">1872 年〜昨日</td><td>平均・最高・最低気温、降水量（合計、1 時間・10 分間の最大）、日照時間、全天日射量、最深積雪、降雪量、風速・最大風速・最大瞬間風速と風向、蒸気圧、湿度、気圧、雲量、天気概況。約 2,600 万行、約 215 MB</td></tr>
-        <tr><td><code>hourly</code>（時別値）</td><td class="tab">1885 年〜昨日</td><td>気温、降水量、降雪・積雪の深さ、日照時間、風向・風速、全天日射量、気圧、相対湿度、蒸気圧、露点温度、天気、雲量、視程。約 6 億行、約 1.9 GB</td></tr>
-        <tr><td><code>stations</code></td><td></td><td>地点表。名前と読み、緯度・経度、標高、観測している要素、観測の終了日</td></tr>
-        <tr><td><code>homogeneity_breaks</code></td><td></td><td>均質番号の変化点。移転や観測方法の変更で、長期の比較に注意が要る日付</td></tr>
-      </tbody>
-    </table>
+<section class="start" id="start">
+  <div class="in">
+    <div class="center">
+      <p class="eyebrow">Get started</p>
+      <h2>使ってみる。</h2>
+      <p class="lead">使い方は3通りです。AIに任せるなら、まずはURLを渡す方法から。</p>
     </div>
-    <p class="note" style="margin-top:10px">行数と容量は 2026 年 11 月の時点。気象台・アメダスの地上観測のみで、予報、レーダー、高層・海上の観測、気象庁の月別統計や平年値は含みません（日別値から計算できます）。列の一覧は<a href="https://huggingface.co/datasets/hotchpotch/japan-weather">データセットのカード</a>と <a href="https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/dataset.md">docs/dataset.md</a> にあります。</p>
+    <div class="ways">
+      <div class="way">
+        <span class="way-ico"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/> <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
+        <span class="kicker">AI AGENT</span>
+        <h3>URLを渡す<span class="rec">おすすめ</span></h3>
+        <p>質問と一緒に、AI向けの入口（<a href="https://hotchpotch.github.io/japan-weather-dataset/llms.txt">llms.txt</a>）のURLをプロンプトに入れます。事前の準備は要りません。</p>
+        <pre id="w1" class="wrap">https://hotchpotch.github.io/japan-weather-dataset/llms.txt</pre>
+        <button class="copy" type="button" data-copy="w1"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>URLをコピー</span></button>
+      </div>
+      <div class="way">
+        <span class="way-ico"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19h8"/> <path d="m4 17 6-6-6-6"/></svg></span>
+        <span class="kicker">AGENT SKILLS</span>
+        <h3>スキルを入れる</h3>
+        <p>プロジェクトに入れておくと、気象についての質問のときに自動で使われます。Claude Code や Codex などに対応しています。</p>
+        <pre id="w2">npx skills add hotchpotch/japan-weather-dataset \
+  --skill japan-weather</pre>
+        <button class="copy" type="button" data-copy="w2"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>コマンドをコピー</span></button>
+      </div>
+      <div class="way">
+        <span class="way-ico"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/> <path d="M3 5V19A9 3 0 0 0 21 19V5"/> <path d="M3 12A9 3 0 0 0 21 12"/></svg></span>
+        <span class="kicker">DUCKDB</span>
+        <h3>SQLで読む</h3>
+        <p>必要な部分だけを手元に取得し、DuckDB や pandas、Polars で読みます。例は東京（s47662）の日最高気温です。</p>
+        <pre id="w3">sync.sh daily   # 日別値の全体、約215MB
+duckdb -c "SELECT date, temperature_max
+  FROM read_parquet('~/.cache/japan-weather/data/daily/*/*.parquet',
+                    hive_partitioning = false)
+  WHERE station_id = 's47662'
+  ORDER BY date DESC LIMIT 7"</pre>
+        <a class="more" style="margin-top:4px" href="https://github.com/hotchpotch/japan-weather-dataset#using-the-dataset">手順をREADMEで見る<svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></a>
+      </div>
+    </div>
   </div>
 </section>
 
-<section id="license">
-  <div class="wrap">
-    <div class="sec-head"><span class="sec-no">06</span><h2>ライセンスと出典</h2></div>
-    <div class="read">
-      <p>データは気象庁ホームページのもので、<a href="https://www.digital.go.jp/resources/open_data/public_data_license_v1.0">公共データ利用規約（第 1.0 版）</a>（PDL 1.0、CC BY 4.0 と互換）に従って利用できます。このデータセットを使ったものを公開するときは、出典と、加工したこと・加工した人を書いてください。Hugging Face で公開しているデータは、次のとおり加工したものです。</p>
-      <p class="credit">出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに Yuichi Tateno (@hotchpotch) が加工して作成</p>
-      <p style="margin-top:1em">このデータセットを使って作った表やグラフを公開するときは、加工者としてあなた自身の名前を書いてください。このプロジェクトは気象庁とは関係のない個人のもので、気象庁や政府が作成したかのように見せる使い方はできません。取得ツールのコードは MIT ライセンスです。</p>
+<section class="links">
+  <div class="in">
+    <p class="eyebrow">Links</p>
+    <h2>データとコード。</h2>
+    <div class="linkrow">
+      <a href="https://huggingface.co/datasets/hotchpotch/japan-weather"><span class="n">01</span><b>Hugging Face</b><small>データセット本体とカード</small><span class="ar"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span></a>
+      <a href="https://github.com/hotchpotch/japan-weather-dataset"><span class="n">02</span><b>GitHub</b><small>データ取得ツール jwd（MIT License）と文書</small><span class="ar"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span></a>
+      <a href="https://hotchpotch.github.io/japan-weather-dataset/llms.txt"><span class="n">03</span><b>llms.txt</b><small>AIエージェント向けの入口</small><span class="ar"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span></a>
     </div>
   </div>
 </section>
 </main>
 
 <footer>
-  <div class="wrap">
-    <p><a href="https://github.com/hotchpotch/japan-weather-dataset">GitHub</a> ・ <a href="https://huggingface.co/datasets/hotchpotch/japan-weather">Hugging Face</a> ・ <a href="llms.txt">llms.txt</a></p>
-    <p>作成：Yuichi Tateno (<a href="https://github.com/hotchpotch">@hotchpotch</a>)。気象庁の公式なサービスではありません。</p>
+  <div class="in">
+    <div>
+      <p><b style="color:var(--ink)">japan-weather-dataset</b>　気象庁の公開データをもとにした、個人による非公式のプロジェクトです。</p>
+      <p>作成：Yuichi Tateno（<a href="https://github.com/hotchpotch">@hotchpotch</a>）。元データ：公共データ利用規約（第1.0版）、データセット：CC BY 4.0、コード：MIT。</p>
+    </div>
+    <nav aria-label="リンク">
+      <a href="https://huggingface.co/datasets/hotchpotch/japan-weather">Hugging Face</a>
+      <a href="https://github.com/hotchpotch/japan-weather-dataset">GitHub</a>
+      <a href="https://github.com/hotchpotch/japan-weather-dataset/blob/main/README.md">README</a>
+      <a href="https://www.data.jma.go.jp/risk/obsdl/">気象庁「過去の気象データ・ダウンロード」</a>
+    </nav>
   </div>
 </footer>
 
 <script>
-document.querySelectorAll("button.copy").forEach(function(b){
+(function(){
+"use strict";
+var STRIPES=[-1.03, -1.1, -1.35, -1.32, -1.33, -1.06, -1.15, -1.25, -1.62, -1.51, -1.74, -1.43, -1.51, -0.99, -1.41, -1.88, -0.5, -0.85, -0.43, -1.61, -1.38, -1.03, -0.8, -1.38, -0.87, -1.06, -1.3, -1.24, -1.62, -1.23, -0.91, -1.16, -0.62, -1.33, -1.01, -0.94, -1.43, -1.05, -1.4, -0.66, -0.84, -0.98, -1.15, -1.09, -0.97, -1.15, -1.38, -1.86, -0.66, -1.72, -0.38, -0.95, -0.58, -0.92, -1.04, -1.03, -0.82, -0.42, -1.04, -1.05, -0.58, -0.18, -0.52, -0.12, -0.67, -0.94, -0.59, -1.28, -0.82, -0.77, -0.93, -1.08, -1.05, -0.97, -0.44, -0.59, -1.21, -0.64, -1.17, -0.71, -0.46, -0.09, -1.08, -1.28, -0.62, -0.79, -1.28, -0.67, -1.25, -0.43, -0.95, -0.14, 0.48, -0.05, -0.4, -0.81, 0.27, -0.49, -0.83, -0.2, 0.46, 0.2, -0.03, -0.36, -0.01, -0.37, 0.46, -0.32, -0.11, 0.3, -0.08, -0.0, 0.3, -0.17, -0.26, 0.05, -0.17, 0.39, 0.57, -0.05, 0.38, 0.62, 0.65, 0.61, 0.6, 1.28, 1.47, 1.22];
+var ST=[["a",45.18,141.14,1976,2026],["a",45.13,142.35,1976,2026],["a",44.84,142.48,1976,2026],["a",44.48,142.34,1976,2026],["a",44.44,142.58,1976,2005],["a",44.37,142.46,1976,2026],["a",44.3,142.36,1976,2026],["a",44.3,142.64,1976,2026],["a",44.19,142.42,1976,2026],["a",44.07,142.27,1976,2005],["a",43.95,142.32,1976,2004],["a",43.91,142.58,1976,2004],["a",43.85,142.75,1976,2026],["a",43.74,142.64,1976,2026],["a",43.63,142.34,1976,2004],["a",43.66,142.83,1977,2004],["a",43.48,142.65,1976,2026],["a",43.33,142.4,1976,2026],["a",43.38,142.57,1976,2005],["a",43.19,142.35,1976,2005],["a",44.89,141.76,1976,2026],["a",44.72,141.81,1976,2026],["a",43.85,141.51,1976,2026],["a",43.3,141.51,1976,2009],["a",43.22,141.65,1976,2026],["a",43.15,141.22,1976,2026],["a",43.08,141.2,1976,2026],["a",42.96,141.22,1976,2026],["a",42.93,141.56,1976,2026],["a",42.9,141.41,1976,2004],["a",42.77,141.41,1976,2026],["a",43.81,141.93,1976,2026],["a",43.72,142.07,1976,2026],["a",43.76,142.2,1976,1984],["a",43.57,141.94,1976,2026],["a",43.52,142.0,1976,2005],["a",43.52,142.19,1976,2026],["a",43.36,141.83,1976,2026],["a",43.26,141.97,1976,2008],["a",43.01,141.69,1976,2026],["a",43.08,141.96,1976,1983],["a",43.04,141.96,1976,2026],["a",42.92,142.09,1976,1983],["a",43.27,140.56,1976,2026],["a",43.18,140.76,1976,2026],["a",42.98,140.6,1976,2026],["a",42.81,140.54,1976,2026],["a",42.88,140.94,1976,2004],["a",42.75,140.62,1976,2009],["a",42.79,140.95,1976,2026],["a",42.66,140.31,1976,2026],["a",44.47,143.11,1976,2026],["a",44.21,143.62,1976,2026],["a",44.18,143.06,1976,2026],["a",44.19,143.34,1976,2026],["a",44.12,144.04,1976,2026],["a",44.05,143.54,1976,2026],["a",44.02,143.76,1976,2026],["a",43.92,143.53,1976,2026],["a",43.86,143.75,1976,2026],["a",43.78,143.84,1976,2026],["a",43.84,144.49,1976,2026],["a",43.88,144.7,1976,2026],["a",43.74,143.45,1976,2026],["a",43.76,143.6,1976,1984],["a",43.77,144.17,1976,2026],["a",43.73,144.3,1976,2009],["a",43.65,143.89,1976,2005],["a",43.7,144.03,1976,2026],["a",43.6,143.46,1976,2005],["a",44.02,145.19,1976,2026],["a",43.66,145.13,1976,2026],["a",43.54,144.98,1976,2026],["a",43.48,144.81,1976,2003],["a",43.38,145.12,1976,2026],["a",43.62,144.46,1976,2026],["a",43.44,144.08,1976,2026],["a",43.48,144.45,1976,1977],["a",43.29,144.59,1976,2026],["a",43.28,144.23,1976,1983],["a",43.2,144.14,1976,2026],["a",43.11,144.12,1976,2026],["a",43.08,145.13,1976,1976],["a",42.97,144.06,1976,2026],["a",43.48,143.13,1976,1984],["a",43.47,143.75,1976,2026],["a",43.44,143.69,1976,1983],["a",43.37,143.19,1976,2026],["a",43.4,143.48,1976,1983],["a",43.36,143.8,1976,1983],["a",43.24,143.07,1976,2009],["a",43.24,143.29,1976,2026],["a",43.25,143.44,1976,1983],["a",43.24,143.55,1976,2026],["a",43.17,142.78,1976,2009],["a",43.2,142.97,1976,1984],["a",43.13,143.6,1976,2026],["a",43.08,142.84,1976,2026],["a",43.1,143.0,1976,2026],["a",42.9,143.04,1976,2026],["a",42.92,143.46,1976,2026],["a",42.81,143.66,1976,2026],["a",42.75,142.93,1976,1996],["a",42.6,143.06,1976,1996],["a",42.5,143.27,1976,2026],["a",42.81,141.83,1976,2026],["a",42.73,141.89,1976,2026],["a",42.76,142.14,1976,2026],["a",42.63,141.25,1976,2026],["a",42.59,140.64,1977,2026],["a",42.53,140.85,1976,1984],["a",42.54,141.35,1976,2026],["a",42.59,141.93,1976,2026],["a",42.48,140.85,1976,2026],["a",42.5,141.12,1976,1984],["a",42.46,141.12,1976,2026],["a",42.5,142.05,1976,2026],["a",42.54,142.33,1976,2026],["a",42.6,142.4,1976,1985],["a",42.43,142.48,1976,2026],["a",42.34,142.36,1976,2026],["a",42.35,142.66,1976,1991],["a",42.52,140.37,1976,2026],["a",42.25,140.27,1976,2026],["a",42.07,140.59,1976,2026],["a",41.98,140.72,1976,2026],["a",41.91,140.97,1976,2026],["a",41.89,140.65,1976,2026],["a",41.72,140.94,1976,1984],["a",41.54,140.43,1976,2004],["a",41.42,140.09,1976,2026],["a",42.45,139.85,1976,2026],["a",42.43,140.01,1976,2026],["a",42.13,139.99,1976,2026],["a",42.04,140.09,1976,2026],["a",41.28,141.1,1976,2005],["a",41.05,140.63,1976,2026],["a",40.88,141.16,1976,2026],["a",40.78,140.21,1976,2026],["a",40.81,140.46,1977,2026],["a",40.61,140.46,1976,2026],["a",40.67,140.59,1976,2026],["a",40.67,140.86,1976,2009],["a",40.67,141.38,1976,2026],["a",40.55,140.21,1976,1996],["a",40.55,140.75,1976,1983],["a",40.61,141.23,1976,2026],["a",40.53,140.56,1976,2026],["a",40.48,140.62,1976,2026],["a",40.44,140.71,1976,1994],["a",40.43,140.9,1976,2026],["a",40.33,141.05,1976,2009],["a",40.38,141.26,1976,2026],["a",40.41,140.4,1976,2005],["a",40.41,140.61,1976,2026],["a",40.37,140.81,1976,1983],["a",40.2,140.03,1976,2026],["a",40.23,140.37,1976,2026],["a",40.22,140.79,1976,2026],["a",40.12,140.84,1976,2026],["a",40.01,140.52,1976,2009],["a",39.94,140.12,1976,2026],["a",39.89,139.77,1976,1984],["a",39.78,140.25,1976,1984],["a",39.71,140.29,1976,2026],["a",39.6,140.56,1976,2026],["a",39.7,140.73,1976,2026],["a",39.49,140.5,1976,2026],["a",39.36,140.06,1976,2026],["a",39.37,140.32,1976,2005],["a",39.32,140.56,1976,2026],["a",39.26,139.91,1976,2026],["a",39.23,140.14,1976,2026],["a",39.22,140.72,1976,1994],["a",39.19,140.46,1976,2026],["a",39.09,140.34,1976,1983],["a",38.96,140.53,1976,2026],["a",40.4,141.7,1976,2026],["a",40.33,141.47,1976,2026],["a",40.3,141.3,1976,2026],["a",40.26,141.38,1976,2009],["a",40.17,141.75,1976,2026],["a",40.08,141.17,1976,2009],["a",40.04,141.46,1976,2026],["a",40.02,141.53,1976,2009],["a",39.95,140.91,1976,2009],["a",39.95,141.06,1976,2026],["a",39.84,140.95,1976,2005],["a",39.83,141.38,1976,2000],["a",39.82,141.52,1976,2009],["a",39.85,141.79,1976,2026],["a",39.73,140.79,1976,2005],["a",39.71,141.6,1976,2003],["a",39.7,140.97,1976,2026],["a",39.53,141.5,1976,2005],["a",39.49,140.79,1976,1992],["a",39.48,140.97,1976,2026],["a",39.43,141.13,1976,2026],["a",39.47,141.28,1976,2026],["a",39.31,140.78,1976,2026],["a",39.29,141.11,1976,2026],["a",39.34,141.54,1976,2026],["a",39.18,141.66,1976,2009],["a",39.27,141.88,1976,2026],["a",39.13,140.88,1976,2005],["a",39.14,141.06,1976,2026],["a",39.18,141.16,1976,2026],["a",38.93,141.13,1976,2026],["a",38.92,141.33,1976,2026],["a",38.97,141.45,1976,2005],["a",38.95,140.8,1976,1979],["a",38.91,141.56,1976,2026],["a",38.74,140.76,1976,2026],["a",38.73,141.0,1976,2026],["a",38.66,140.64,1976,2005],["a",38.68,141.45,1976,2026],["a",38.6,140.91,1976,2026],["a",38.47,140.89,1976,2026],["a",38.46,141.09,1976,2026],["a",38.3,140.64,1976,2026],["a",38.26,140.59,1976,1996],["a",38.18,140.63,1976,2005],["a",38.07,140.5,1976,2009],["a",38.02,140.61,1976,2026],["a",38.02,140.86,1976,2026],["a",39.07,140.04,1976,2009],["a",38.92,140.2,1976,2026],["a",38.9,140.38,1976,1994],["a",38.88,140.33,1976,2026],["a",38.73,139.83,1976,2026],["a",38.8,139.97,1976,2026],["a",38.76,140.41,1976,2026],["a",38.63,139.63,1976,2009],["a",38.67,139.85,1977,2026],["a",38.5,140.1,1976,2009],["a",38.56,140.53,1976,2005],["a",38.47,140.4,1976,2002],["a",38.37,140.19,1976,2026],["a",38.16,139.98,1976,1984],["a",38.1,140.01,1976,2026],["a",38.16,140.43,1976,2009],["a",38.08,139.74,1976,2026],["a",37.99,139.95,1976,2026],["a",37.91,140.14,1976,2026],["a",37.77,140.14,1976,2009],["a",37.85,140.59,1976,2026],["a",37.76,139.74,1976,2009],["a",37.72,140.28,1976,2009],["a",37.78,140.93,1976,2026],["a",37.66,139.86,1976,2026],["a",37.7,140.82,1976,2005],["a",37.64,140.98,1976,2026],["a",37.53,139.68,1976,2005],["a",37.55,140.11,1976,2026],["a",37.58,140.43,1976,2026],["a",37.58,140.72,1976,1981],["a",37.44,140.58,1976,2026],["a",37.49,140.97,1976,2026],["a",37.34,139.24,1976,1977],["a",37.34,139.31,1976,2026],["a",37.34,139.72,1976,2009],["a",37.37,140.33,1976,2026],["a",37.35,141.02,1976,2026],["a",37.27,139.54,1976,2026],["a",37.21,139.61,1976,2009],["a",37.21,139.79,1976,2026],["a",37.29,140.63,1976,2026],["a",37.18,139.93,1976,1978],["a",37.15,140.46,1976,2026],["a",37.07,139.73,1976,2009],["a",37.08,140.64,1976,2009],["a",37.06,140.88,1976,2026],["a",36.98,139.48,1976,2009],["a",36.94,140.41,1976,2026],["a",36.87,140.64,1976,2026],["a",36.83,140.77,1976,2026],["a",36.78,140.34,1976,2026],["a",36.63,140.61,1976,1985],["a",36.4,140.24,1976,2026],["a",36.2,139.72,1976,2026],["a",36.29,140.25,1976,1982],["a",36.17,139.94,1976,2026],["a",36.04,139.89,1976,2026],["a",36.1,140.22,1976,2026],["a",35.96,140.62,1976,2026],["a",37.12,140.03,1976,2026],["a",37.02,140.12,1976,1977],["a",36.92,139.83,1976,2007],["a",36.98,140.02,1976,2026],["a",36.94,140.26,1976,2007],["a",36.84,140.03,1976,2026],["a",36.63,139.51,1976,2004],["a",36.61,140.0,1976,2026],["a",36.59,139.74,1976,2026],["a",36.43,139.59,1976,2026],["a",36.48,139.99,1976,2026],["a",36.34,139.46,1976,2026],["a",36.37,139.7,1976,2026],["a",36.34,139.83,1976,2026],["a",36.77,139.16,1976,1981],["a",36.62,138.59,1976,2026],["a",36.69,138.65,1976,2009],["a",36.69,138.86,1976,2009],["a",36.67,139.02,1976,2026],["a",36.54,139.18,1976,2009],["a",36.46,138.46,1976,2026],["a",36.47,138.87,1976,2026],["a",36.41,139.32,1976,2026],["a",36.37,138.66,1976,2009],["a",36.38,138.9,1976,2026],["a",36.24,138.71,1976,2026],["a",36.24,139.07,1976,2026],["a",36.24,139.51,1976,2026],["a",36.17,138.86,1976,2009],["a",36.09,139.63,1976,2026],["a",36.01,139.19,1976,2000],["a",35.84,139.32,1976,2026],["a",35.88,139.59,1976,2026],["a",35.88,139.76,1976,2026],["a",35.79,139.05,1976,2026],["a",35.67,139.32,1976,2026],["a",35.67,139.53,1976,1976],["a",35.63,139.62,1976,2026],["a",35.64,139.86,1976,2026],["a",35.55,139.78,1976,2026],["a",35.86,140.5,1976,2026],["a",35.86,140.11,1976,2026],["a",35.8,140.68,1976,2026],["a",35.76,140.38,1976,2026],["a",35.44,140.29,1976,2026],["a",35.36,139.94,1976,2026],["a",35.12,139.84,1976,2026],["a",35.11,140.1,1976,2026],["a",35.61,139.19,1976,2026],["a",35.43,139.39,1976,2026],["a",35.22,139.04,1976,2026],["a",35.3,139.48,1976,1992],["a",35.18,139.63,1976,2026],["a",36.91,138.44,1976,2026],["a",36.81,138.2,1976,2026],["a",36.88,138.38,1976,2026],["a",36.7,137.86,1976,2026],["a",36.66,138.46,1976,2026],["a",36.52,137.83,1976,2026],["a",36.55,138.0,1976,2026],["a",36.42,138.06,1976,1978],["a",36.4,138.26,1976,2026],["a",36.39,137.74,1976,2009],["a",36.34,137.88,1976,2026],["a",36.3,138.14,1976,2026],["a",36.25,138.48,1976,2026],["a",36.15,138.04,1976,2009],["a",36.11,138.53,1976,1982],["a",36.03,138.31,1976,2003],["a",35.98,137.84,1976,2019],["a",35.97,138.22,1976,2026],["a",35.95,138.47,1976,2026],["a",35.87,137.5,1976,2026],["a",35.84,137.69,1976,2026],["a",35.84,138.06,1976,1993],["a",35.89,138.16,1976,2003],["a",35.77,137.88,1976,2026],["a",35.74,138.12,1976,1981],["a",35.7,137.69,1976,2026],["a",35.59,137.73,1976,2005],["a",35.65,137.9,1976,2026],["a",35.61,138.09,1976,1982],["a",35.43,137.62,1976,1981],["a",35.26,137.83,1976,1978],["a",35.83,138.64,1976,2008],["a",35.8,138.29,1976,2009],["a",35.73,138.84,1976,2008],["a",35.66,138.72,1976,2026],["a",35.61,138.94,1976,2026],["a",35.54,138.41,1976,2013],["a",35.53,138.62,1976,2026],["a",35.44,138.84,1976,2026],["a",35.29,138.44,1976,2026],["a",35.31,138.58,1976,2026],["a",35.3,138.93,1976,2026],["a",35.19,138.66,1976,2026],["a",35.01,137.98,1976,2016],["a",35.1,138.13,1976,2026],["a",35.05,138.28,1976,1991],["a",34.98,138.2,1976,2026],["a",34.88,137.69,1976,1981],["a",34.89,137.81,1976,2026],["a",34.84,138.14,1976,1978],["a",34.9,138.93,1976,2026],["a",34.87,139.02,1976,2026],["a",34.76,138.78,1976,2026],["a",34.78,139.05,1976,2026],["a",35.3,136.85,1976,2026],["a",35.26,136.92,1976,2005],["a",35.22,137.66,1976,2026],["a",35.13,137.18,1976,2026],["a",35.02,136.9,1976,2012],["a",35.09,137.42,1976,2005],["a",34.92,137.19,1976,2026],["a",34.98,137.43,1976,2026],["a",34.81,137.03,1976,2026],["a",34.75,137.34,1976,2026],["a",34.63,137.22,1976,2026],["a",36.32,137.31,1976,2026],["a",36.33,137.25,1976,1982],["a",36.17,137.03,1976,1990],["a",36.12,137.56,1976,2005],["a",36.02,136.85,1976,1979],["a",36.03,136.97,1976,1981],["a",36.03,137.26,1976,2026],["a",35.9,136.95,1976,1976],["a",35.87,136.86,1976,1978],["a",35.89,137.21,1976,2026],["a",35.73,136.8,1976,2005],["a",35.76,136.98,1976,2026],["a",35.64,136.6,1976,2026],["a",35.66,137.16,1976,2026],["a",35.65,137.52,1976,1981],["a",35.58,136.5,1976,1981],["a",35.52,137.23,1976,2026],["a",35.45,137.0,1976,2026],["a",35.4,137.21,1976,2009],["a",35.45,137.4,1976,2026],["a",35.48,137.49,1976,2026],["a",35.36,136.47,1976,2026],["a",35.35,136.62,1976,2026],["a",35.38,137.53,1976,2009],["a",35.14,136.54,1976,2026],["a",35.05,136.69,1976,2026],["a",35.0,136.46,1976,2009],["a",34.87,136.45,1976,2026],["a",34.73,136.31,1976,2026],["a",34.63,136.11,1976,2026],["a",34.56,136.16,1976,1981],["a",34.53,136.66,1976,2026],["a",34.45,136.39,1976,2026],["a",34.32,136.49,1976,2026],["a",34.06,136.11,1976,1984],["a",33.89,136.09,1976,2001],["a",38.23,139.48,1976,2026],["a",38.23,139.64,1976,1980],["a",38.07,138.44,1976,2026],["a",37.91,139.45,1976,2009],["a",37.79,139.09,1976,2026],["a",37.77,138.91,1976,2026],["a",37.78,139.29,1976,2009],["a",37.64,138.77,1976,2026],["a",37.64,138.96,1976,2026],["a",37.7,139.19,1976,2026],["a",37.67,139.45,1976,2026],["a",37.58,139.13,1976,1982],["a",37.45,138.82,1976,2026],["a",37.48,138.99,1976,2026],["a",37.41,139.09,1976,2009],["a",37.35,138.55,1976,2026],["a",37.21,138.53,1976,1984],["a",37.23,138.96,1976,2026],["a",37.11,138.46,1976,2026],["a",37.14,138.73,1976,2026],["a",37.16,139.13,1976,1980],["a",37.04,137.88,1976,2026],["a",37.08,138.02,1976,2026],["a",37.01,138.37,1976,1984],["a",37.04,138.79,1976,1982],["a",37.0,138.68,1976,2026],["a",36.94,138.81,1976,2026],["a",36.87,138.28,1976,1984],["a",36.94,137.56,1976,2026],["a",36.82,137.43,1976,2026],["a",36.85,137.56,1976,1978],["a",36.83,137.54,1976,1983],["a",36.61,136.96,1976,2026],["a",36.67,137.42,1976,2026],["a",36.55,136.87,1976,2026],["a",36.57,137.16,1976,2026],["a",36.57,137.3,1976,1983],["a",36.58,137.58,1976,2009],["a",36.45,136.9,1976,1983],["a",36.49,137.1,1976,1983],["a",37.45,137.29,1976,2026],["a",37.26,136.73,1976,2026],["a",37.29,136.95,1976,1998],["a",37.14,136.72,1976,2026],["a",37.03,136.99,1976,2026],["a",36.89,136.78,1976,2026],["a",36.71,136.69,1976,2026],["a",36.78,136.81,1976,2003],["a",36.52,136.75,1976,2026],["a",36.26,136.4,1976,2026],["a",35.97,136.5,1976,2026],["a",35.99,136.61,1976,1981],["a",35.86,136.13,1976,2005],["a",35.87,136.31,1976,2009],["a",35.77,136.2,1976,2026],["a",35.48,135.78,1976,2026],["a",35.41,136.03,1976,2026],["a",35.37,135.93,1976,2005],["a",35.38,136.37,1976,2001],["a",35.11,136.07,1976,2026],["a",35.2,136.34,1976,1978],["a",34.99,135.91,1976,2026],["a",34.94,136.28,1976,2026],["a",35.62,135.07,1976,2026],["a",35.55,135.24,1976,2026],["a",35.38,135.03,1976,1981],["a",35.33,135.39,1976,1981],["a",35.31,135.11,1976,2026],["a",35.21,135.46,1976,1981],["a",35.17,135.17,1976,1981],["a",35.11,135.46,1976,2026],["a",34.83,135.76,1976,2026],["a",34.83,135.91,1976,2009],["a",34.95,135.46,1976,2026],["a",34.84,135.5,1976,2009],["a",34.78,135.44,1976,2026],["a",34.67,135.68,1976,2026],["a",34.42,135.54,1976,2026],["a",34.38,135.35,1976,2026],["a",35.63,134.63,1976,2026],["a",35.53,134.48,1976,2026],["a",35.55,134.64,1976,2003],["a",35.4,134.74,1976,2026],["a",35.32,134.85,1976,2026],["a",35.17,134.79,1976,2026],["a",35.14,135.06,1976,2026],["a",35.1,134.59,1976,2026],["a",35.05,134.84,1976,2007],["a",35.02,134.37,1976,2026],["a",35.02,135.29,1976,2026],["a",34.86,134.37,1976,2026],["a",34.87,134.53,1976,2007],["a",34.83,135.29,1976,2006],["a",34.76,135.27,1976,2006],["a",34.67,134.53,1976,2026],["a",34.69,134.88,1976,2026],["a",34.26,134.71,1976,1978],["a",34.6,135.95,1976,2026],["a",34.55,135.78,1976,2026],["a",34.52,136.16,1976,2026],["a",34.49,135.93,1976,2026],["a",34.43,136.09,1976,1979],["a",34.38,135.73,1976,2026],["a",34.23,135.73,1976,2009],["a",34.27,135.93,1976,2009],["a",34.16,135.66,1976,1980],["a",34.19,136.11,1976,2009],["a",34.1,135.77,1976,1980],["a",33.93,135.83,1976,2021],["a",34.35,135.44,1976,2026],["a",34.26,135.32,1976,1978],["a",34.22,135.59,1976,2026],["a",34.04,135.57,1976,2026],["a",33.9,135.16,1976,1999],["a",33.85,135.46,1976,2009],["a",33.69,135.97,1976,2026],["a",33.68,135.35,1976,2009],["a",33.6,135.48,1976,2026],["a",35.2,133.82,1976,2005],["a",35.16,134.18,1976,1980],["a",35.1,134.32,1976,2026],["a",35.07,133.75,1976,2026],["a",34.94,133.52,1976,2026],["a",34.99,133.88,1976,2010],["a",34.92,134.08,1976,2026],["a",34.83,133.52,1976,2026],["a",34.9,133.71,1976,2005],["a",34.87,133.9,1976,2026],["a",34.81,134.18,1976,2026],["a",34.69,133.44,1976,2026],["a",34.62,133.62,1976,2026],["a",34.68,134.21,1976,2026],["a",34.59,133.77,1976,2026],["a",34.49,133.95,1976,2026],["a",35.06,133.19,1976,2026],["a",34.92,132.81,1976,2005],["a",34.8,132.62,1976,2005],["a",34.81,132.85,1976,2026],["a",34.86,133.02,1976,2026],["a",34.77,132.46,1976,2026],["a",34.61,132.32,1976,2026],["a",34.61,132.48,1976,2005],["a",34.69,133.12,1976,2026],["a",34.6,132.18,1976,2026],["a",34.58,133.05,1976,2026],["a",34.48,132.33,1976,2005],["a",34.42,132.7,1976,2026],["a",34.33,132.98,1976,2026],["a",34.28,133.12,1976,2026],["a",34.22,132.22,1976,2026],["a",34.09,132.49,1976,2026],["a",36.11,133.04,1976,1978],["a",35.52,132.98,1976,2026],["a",35.41,132.89,1976,2026],["a",35.32,132.97,1976,2026],["a",35.19,132.5,1976,2026],["a",35.2,132.81,1976,2026],["a",35.17,133.1,1976,2026],["a",35.07,133.04,1976,2009],["a",34.98,132.49,1976,2026],["a",34.8,131.95,1976,2026],["a",34.69,131.85,1976,2026],["a",34.64,132.15,1976,1978],["a",34.44,131.69,1976,2004],["a",34.46,131.77,1976,2026],["a",35.52,134.0,1976,2026],["a",35.56,134.36,1976,2026],["a",35.47,133.84,1976,2026],["a",35.42,133.99,1976,1981],["a",35.41,134.21,1976,1981],["a",35.39,133.54,1976,2026],["a",35.27,133.44,1976,1981],["a",35.26,134.24,1976,2026],["a",34.16,134.39,1976,2008],["a",34.02,133.79,1976,2026],["a",33.92,134.26,1976,1978],["a",33.87,134.53,1976,2008],["a",33.73,134.54,1976,2026],["a",33.56,134.31,1976,2009],["a",34.47,134.27,1976,2026],["a",34.24,133.92,1976,2026],["a",34.21,134.41,1976,2026],["a",34.11,134.05,1976,2026],["a",34.25,133.01,1976,2026],["a",34.02,132.94,1976,2026],["a",33.94,133.34,1976,2026],["a",33.98,133.58,1978,2026],["a",33.74,132.89,1976,2026],["a",33.8,133.13,1976,2026],["a",33.62,132.48,1976,2026],["a",33.64,132.71,1976,2026],["a",33.66,132.9,1976,2026],["a",33.54,132.83,1976,2026],["a",33.45,132.43,1976,2026],["a",32.96,132.57,1976,2026],["a",33.75,133.57,1976,2026],["a",33.68,133.69,1976,2026],["a",33.51,133.27,1976,2026],["a",33.59,133.4,1976,2009],["a",33.59,133.64,1976,1978],["a",33.55,133.84,1976,2009],["a",33.48,133.08,1976,2026],["a",33.42,133.09,1976,2026],["a",33.49,133.93,1976,2026],["a",33.38,133.28,1976,2026],["a",33.41,134.2,1976,2026],["a",33.21,133.13,1976,2026],["a",33.16,132.88,1976,2005],["a",33.19,132.97,1976,2026],["a",32.99,132.92,1976,2026],["a",34.62,131.62,1976,2026],["a",34.4,131.72,1976,2026],["a",34.27,131.09,1976,2009],["a",34.23,131.31,1976,2026],["a",34.22,131.58,1976,1980],["a",34.26,131.95,1976,2026],["a",34.19,131.08,1976,2026],["a",34.15,131.22,1976,2009],["a",34.04,131.53,1976,2026],["a",34.01,131.87,1976,2026],["a",33.93,131.28,1976,2026],["a",33.9,132.29,1976,2026],["a",33.85,130.74,1976,2026],["a",33.84,130.95,1976,1977],["a",33.71,130.97,1976,2026],["a",33.64,130.54,1976,2009],["a",33.56,130.19,1976,2026],["a",33.42,130.44,1976,2010],["a",33.41,130.69,1976,2026],["a",33.49,130.92,1976,2026],["a",33.3,130.49,1976,2026],["a",33.29,130.63,1976,2026],["a",33.23,130.65,1976,2026],["a",33.01,130.47,1976,2026],["a",33.59,131.25,1976,2026],["a",33.57,131.43,1976,2026],["a",33.48,131.74,1976,2026],["a",33.38,130.98,1976,2005],["a",33.25,131.35,1976,2026],["a",33.25,131.87,1976,2026],["a",33.19,130.89,1976,2004],["a",33.19,131.33,1976,1976],["a",33.08,131.43,1976,2009],["a",33.06,131.63,1976,2026],["a",32.97,131.4,1976,2026],["a",32.97,131.67,1976,2009],["a",32.95,131.9,1976,2026],["a",32.9,131.4,1976,2009],["a",32.8,131.92,1976,2026],["a",34.64,129.4,1976,1995],["a",33.34,129.71,1976,2026],["a",33.23,129.81,1976,2009],["a",32.95,129.63,1976,2021],["a",32.91,129.74,1976,2026],["a",32.94,130.08,1976,2009],["a",32.84,130.03,1976,2026],["a",33.5,129.9,1976,2010],["a",33.42,129.99,1976,2010],["a",33.4,130.24,1976,2009],["a",33.28,130.03,1976,2009],["a",33.18,130.15,1976,2026],["a",33.12,130.0,1976,2026],["a",32.97,130.16,1976,2009],["a",33.12,130.69,1976,2026],["a",33.1,131.07,1976,2026],["a",32.91,130.51,1976,2026],["a",32.95,130.78,1976,2026],["a",32.95,130.92,1976,2009],["a",32.85,130.98,1976,2009],["a",32.82,131.13,1976,2026],["a",32.71,130.94,1976,2009],["a",32.67,130.82,1976,2026],["a",32.52,130.45,1976,2026],["a",32.56,130.91,1976,2009],["a",32.47,130.18,1976,2026],["a",32.47,130.61,1976,2026],["a",32.13,130.72,1976,1976],["a",32.2,130.64,1976,2005],["a",32.17,130.91,1976,2005],["a",32.71,131.29,1976,2026],["a",32.56,131.35,1976,1987],["a",32.56,131.4,1976,2010],["a",32.42,131.37,1976,1976],["a",32.41,131.6,1976,2026],["a",32.31,131.4,1976,1987],["a",32.12,131.47,1976,2026],["a",32.05,130.81,1976,2026],["a",32.06,131.41,1976,2026],["a",31.95,130.84,1976,2026],["a",32.0,130.95,1976,2026],["a",31.96,131.16,1976,2026],["a",32.01,131.3,1976,2026],["a",31.85,130.95,1976,2009],["a",31.8,131.46,1976,2017],["a",31.77,131.27,1976,2009],["a",31.46,131.22,1976,2026],["a",32.05,130.63,1976,2026],["a",31.98,130.37,1976,2026],["a",31.92,130.46,1976,2026],["a",31.84,129.87,1976,2026],["a",31.83,130.31,1976,2026],["a",31.8,130.72,1976,2026],["a",31.75,130.44,1976,2026],["a",31.67,130.33,1976,2026],["a",31.51,130.46,1976,2009],["a",31.51,130.75,1976,2009],["a",31.41,130.32,1976,2026],["a",31.46,130.86,1976,2026],["a",31.39,130.54,1976,2026],["a",31.35,130.95,1976,1977],["a",31.25,130.64,1976,2026],["a",31.25,130.96,1976,2009],["a",31.28,131.06,1976,2026],["a",30.61,130.99,1976,2026],["a",30.41,130.9,1976,2026],["a",30.23,130.56,1976,2026],["a",26.84,128.27,1976,2026],["a",26.73,128.22,1976,2005],["a",26.66,127.97,1976,1981],["a",26.51,127.91,1976,1981],["a",26.41,127.73,1976,2026],["a",26.33,127.8,1976,2026],["a",26.15,127.77,1976,2026],["a",38.76,140.52,1976,2026],["a",35.96,140.32,1976,2026],["a",40.25,140.5,1976,2026],["a",34.09,132.07,1977,2026],["a",35.73,140.21,1976,2026],["a",41.68,140.44,1976,2026],["a",34.39,136.41,1976,1978],["a",34.5,133.5,1976,2026],["a",35.16,135.79,1976,2009],["a",33.39,132.92,1976,2026],["a",32.61,130.19,1976,2026],["a",32.84,130.85,1976,2026],["a",32.2,130.41,1976,2026],["a",32.3,130.95,1976,2026],["a",32.23,130.91,1977,2026],["a",35.32,135.65,1976,1978],["a",35.18,135.66,1976,2026],["a",34.97,133.63,1976,2026],["a",34.79,133.61,1976,2026],["a",33.42,131.32,1976,2026],["a",33.29,131.16,1976,2026],["a",33.13,131.8,1976,2026],["a",32.09,130.35,1976,2026],["a",31.66,130.84,1976,2026],["a",31.48,131.09,1976,2026],["a",31.39,130.86,1976,2026],["a",35.16,133.32,1976,1978],["a",34.37,131.06,1976,2026],["a",34.16,132.18,1976,2026],["a",34.09,132.04,1976,1977],["a",33.96,132.11,1976,2026],["a",33.81,130.54,1976,2026],["a",33.74,130.84,1976,2012],["a",33.16,130.4,1976,2026],["a",32.36,130.51,1976,2026],["a",35.03,132.9,1976,2026],["a",34.9,133.28,1976,2026],["a",34.7,132.76,1976,2026],["a",34.55,132.53,1976,2026],["a",34.56,133.23,1976,2026],["a",34.47,132.89,1976,2010],["a",34.18,132.83,1976,2009],["a",35.22,132.72,1976,2026],["a",33.43,134.01,1976,2026],["a",35.0,135.0,1976,2026],["a",34.14,136.0,1976,2026],["a",33.91,133.08,1976,2026],["a",33.51,132.53,1976,2026],["a",33.39,132.12,1976,1997],["a",33.37,132.5,1976,2026],["a",32.76,130.36,1976,2026],["a",35.06,136.19,1976,2026],["a",34.91,136.08,1976,2026],["a",35.74,135.09,1976,2026],["a",35.26,135.4,1976,2026],["a",35.33,134.66,1976,2026],["a",34.95,134.75,1976,2026],["a",34.9,135.21,1976,2026],["a",34.47,134.85,1976,2026],["a",33.79,135.51,1976,2026],["a",34.04,134.16,1976,2026],["a",36.4,136.62,1976,2026],["a",36.0,136.36,1976,2026],["a",35.44,135.52,1976,1995],["a",35.42,136.24,1976,2026],["a",35.43,134.58,1976,2026],["a",34.03,135.18,1976,2026],["a",33.45,131.12,1976,2026],["a",28.14,129.31,1976,2026],["a",44.05,144.98,1976,2026],["a",35.21,137.51,1976,2026],["a",35.14,136.79,1976,2026],["a",34.74,136.94,1976,2026],["a",38.52,141.47,1976,2026],["a",35.06,137.76,1976,2026],["a",34.88,138.76,1976,2026],["a",34.8,137.56,1976,2026],["a",34.77,138.0,1976,2026],["a",34.56,136.54,1976,1979],["a",34.37,136.81,1976,1977],["a",36.53,138.32,1976,2026],["a",36.38,138.38,1976,2026],["a",36.25,137.63,1976,2026],["a",38.47,139.25,1976,2026],["a",37.84,138.31,1976,2026],["a",37.35,139.04,1976,2026],["a",36.93,138.22,1976,2026],["a",43.33,141.62,1976,2026],["a",35.93,138.92,1976,2026],["a",35.79,139.31,1976,2026],["a",35.74,139.59,1976,2026],["a",35.66,140.5,1976,2026],["a",35.25,140.22,1976,2026],["a",35.57,139.37,1976,2026],["a",35.55,139.65,1976,2026],["a",35.34,139.31,1976,2026],["a",35.28,139.16,1976,2026],["a",36.1,139.18,1976,2026],["a",35.6,135.92,1976,2026],["a",36.58,140.65,1976,2026],["a",36.23,140.19,1976,2026],["a",36.24,140.32,1976,2026],["a",35.89,140.21,1976,2026],["a",36.92,139.69,1976,2026],["a",36.65,139.45,1976,2026],["a",36.65,140.15,1976,2009],["a",36.36,139.57,1976,2026],["a",36.77,138.97,1976,2026],["a",36.59,138.85,1976,2026],["a",36.33,139.16,1976,2026],["a",35.61,137.62,1976,2026],["a",35.86,138.39,1976,2026],["a",35.69,138.45,1976,2026],["a",34.93,135.68,1976,2026],["a",41.18,140.48,1976,2026],["a",40.88,141.27,1976,2026],["a",39.01,140.87,1976,2026],["a",38.63,141.19,1976,2026],["a",38.34,141.01,1976,2026],["a",37.59,139.66,1976,2026],["a",39.87,141.17,1976,2026],["a",39.45,141.96,1976,2026],["a",37.23,141.0,1976,2026],["a",40.0,139.95,1976,2026],["a",39.91,139.9,1976,2026],["a",40.28,141.67,1976,2026],["a",38.99,140.03,1976,2017],["a",38.61,140.41,1976,2026],["a",38.57,139.55,1976,2026],["a",41.53,140.91,1976,2026],["a",40.85,140.99,1976,2026],["a",40.41,139.95,1976,2026],["a",37.47,139.53,1976,2026],["a",39.05,141.04,1976,2026],["a",33.56,130.85,1976,2026],["a",44.12,142.59,1976,2026],["a",43.87,142.47,1976,2026],["a",43.75,142.93,1976,2026],["a",39.53,140.23,1976,2026],["a",44.97,142.28,1976,2026],["a",43.59,142.49,1976,2026],["a",44.01,142.16,1976,2026],["a",45.1,141.78,1976,2026],["a",44.03,142.41,1976,2026],["a",43.39,145.76,1976,2026],["a",35.55,136.91,1976,2026],["a",35.35,137.11,1976,2026],["a",35.25,136.46,1976,2026],["a",38.09,139.56,1976,2026],["a",36.25,137.5,1976,2026],["a",34.55,135.49,1976,2026],["a",34.09,135.43,1976,2026],["a",26.45,127.86,1976,2007],["a",34.81,135.67,1976,2026],["a",35.76,137.29,1976,2026],["a",42.67,141.08,1976,2026],["a",43.12,141.75,1976,2026],["a",36.06,139.52,1976,2026],["a",35.77,139.41,1976,2026],["a",36.24,136.17,1976,2026],["a",42.77,140.88,1976,2026],["a",44.33,142.94,1976,2026],["a",33.84,135.77,1976,2026],["a",33.27,129.88,1976,2026],["a",43.04,141.54,1976,2000],["a",34.05,132.97,1976,2026],["a",39.78,141.33,1976,2026],["a",40.65,140.85,1976,2026],["a",32.98,129.12,1976,1977],["a",32.61,130.48,1976,2026],["a",36.23,140.1,1976,2001],["a",35.23,135.96,1976,2026],["a",32.92,129.91,1976,2026],["a",43.19,141.37,1976,2026],["a",32.26,131.04,1976,2026],["a",35.58,136.19,1976,2026],["a",32.35,130.91,1976,2005],["a",33.95,135.56,1976,2026],["a",36.8,137.91,1976,1983],["a",43.08,140.82,1976,2026],["a",43.87,143.15,1976,2026],["a",34.95,132.33,1976,2026],["a",34.85,132.53,1976,2026],["a",35.35,133.27,1976,2026],["a",35.41,139.04,1976,2026],["a",42.77,142.36,1976,2026],["a",33.88,134.39,1976,2026],["a",43.57,143.14,1976,2005],["a",34.35,132.06,1976,2026],["a",34.28,131.88,1976,2010],["a",37.57,139.38,1976,1993],["a",37.91,139.81,1976,1980],["a",31.85,130.56,1976,2009],["a",34.96,137.73,1976,2026],["a",34.96,137.94,1976,1977],["a",42.97,143.88,1976,2026],["a",40.63,140.26,1976,2026],["a",39.18,140.65,1976,2026],["a",40.62,140.0,1976,1977],["a",37.84,139.41,1976,2026],["a",44.27,141.72,1977,2026],["a",39.23,141.31,1976,2026],["a",35.24,138.34,1976,2020],["a",39.9,140.45,1976,2026],["a",37.67,140.26,1977,2026],["a",39.3,140.29,1977,2026],["a",39.55,140.84,1977,2026],["a",41.06,140.35,1977,2026],["a",40.1,141.05,1977,2026],["a",41.23,141.4,1977,2026],["a",40.0,141.88,1977,2026],["a",41.15,140.82,1977,2026],["a",38.61,140.16,1977,2026],["a",38.91,140.83,1977,2026],["a",37.01,140.74,1977,2009],["a",39.55,141.13,1977,2026],["a",37.34,140.81,1977,2026],["a",37.66,140.73,1977,2026],["a",39.99,140.4,1977,2026],["a",38.0,140.21,1977,2026],["a",35.68,139.48,1977,2026],["a",34.37,139.25,1977,2008],["a",32.71,131.82,1977,2026],["a",31.2,130.84,1977,2026],["a",33.68,131.57,1977,2026],["a",32.98,129.12,1977,2026],["a",27.68,128.97,1977,2026],["a",35.11,134.17,1977,2026],["a",33.5,130.49,1977,2026],["a",32.84,131.68,1977,2026],["a",33.8,129.72,1977,2026],["a",24.51,124.28,1977,2026],["a",31.59,130.85,1977,2026],["a",26.95,127.94,1977,2026],["a",31.58,131.0,1977,2026],["a",37.56,140.75,1977,2026],["a",26.21,127.36,1977,2026],["a",35.57,136.73,1977,2009],["a",37.29,138.7,1977,2026],["a",37.13,138.61,1977,2026],["a",32.31,130.74,1977,1990],["a",33.35,131.47,1977,2009],["a",32.49,130.91,1977,1981],["a",35.92,139.07,1977,2026],["a",35.38,135.45,1977,2026],["a",31.09,130.69,1977,2026],["a",36.69,137.97,1977,2026],["a",34.5,132.66,1977,2026],["a",31.64,131.27,1977,2026],["a",35.62,139.1,1977,2026],["a",35.23,137.28,1977,2026],["a",39.77,140.66,1977,2026],["a",39.78,140.94,1977,2026],["a",38.6,139.84,1977,1977],["a",36.52,140.47,1977,2026],["a",36.18,136.63,1977,2026],["a",33.67,135.85,1977,2026],["a",36.78,140.48,1977,2026],["a",36.77,139.24,1977,2026],["a",34.78,132.2,1977,2026],["a",34.57,132.02,1977,2026],["a",35.38,133.76,1977,2026],["a",35.33,134.41,1977,2026],["a",33.61,133.17,1977,2026],["a",35.73,139.12,1977,2026],["a",31.34,130.94,1977,2026],["a",36.05,138.98,1977,2026],["a",40.71,141.13,1977,2026],["a",43.7,142.51,1977,2026],["a",43.64,142.58,1977,2026],["a",43.23,144.32,1977,2026],["a",43.51,144.47,1977,2026],["a",43.17,142.57,1977,2026],["a",42.98,142.4,1977,2026],["a",43.45,142.47,1977,2026],["a",43.87,142.26,1977,2026],["a",43.09,144.78,1977,2026],["a",43.58,141.39,1977,2026],["a",43.4,141.44,1977,2026],["a",43.12,145.11,1977,2026],["a",43.22,145.23,1977,2026],["a",44.73,142.26,1978,2026],["a",42.24,142.66,1978,2026],["a",42.25,139.56,1978,2026],["a",41.93,140.31,1978,2026],["a",44.83,142.08,1978,2026],["a",42.88,142.44,1978,2026],["a",45.25,141.85,1978,2026],["a",43.05,143.18,1978,2026],["a",41.7,140.03,1978,2026],["a",39.14,141.57,1978,2026],["a",45.44,141.03,1978,2003],["a",43.15,140.42,1978,2026],["a",43.71,143.64,1978,2026],["a",42.64,143.1,1978,2026],["a",42.65,143.19,1978,2026],["a",39.85,141.96,1978,2026],["a",44.43,141.42,1978,2026],["a",42.69,143.65,1978,2026],["a",40.06,141.22,1978,2026],["a",44.52,141.77,1978,2026],["a",44.05,141.86,1978,2026],["a",43.85,141.76,1978,2026],["a",40.15,141.57,1978,2026],["a",37.93,140.78,1978,2026],["a",36.89,139.57,1978,2026],["a",36.86,139.06,1978,2026],["a",36.11,138.9,1978,2026],["a",39.6,141.68,1978,2026],["a",39.63,141.44,1978,1993],["a",36.04,136.52,1978,2026],["a",34.78,135.01,1978,2026],["a",34.05,135.79,1978,2026],["a",33.7,133.88,1978,2026],["a",34.48,136.82,1978,2026],["a",35.52,133.57,1978,2026],["a",35.98,139.34,1978,2026],["a",33.08,133.1,1978,2026],["a",35.47,138.44,1978,2026],["a",33.17,132.79,1978,2026],["a",35.71,140.04,1978,2026],["a",33.42,131.6,1978,2026],["a",35.4,140.15,1978,2026],["a",34.12,133.77,1978,2026],["a",32.95,131.04,1978,2026],["a",35.23,140.1,1978,2026],["a",33.84,134.74,1978,2026],["a",35.05,138.52,1978,2026],["a",34.69,137.88,1978,2026],["a",36.17,140.53,1978,2026],["a",24.83,125.17,1978,2009],["a",24.67,124.7,1978,2009],["a",24.74,125.41,1978,2026],["a",33.59,133.64,1978,2026],["a",24.47,124.14,1978,2026],["a",24.27,123.87,1978,2026],["a",33.87,133.9,1978,2025],["a",34.28,136.21,1978,2026],["a",38.33,139.6,1978,2026],["a",34.7,132.31,1978,2026],["a",34.34,136.68,1978,2026],["a",36.5,139.28,1978,2026],["a",33.91,133.51,1978,2026],["a",34.17,131.75,1978,2026],["a",34.71,132.17,1978,2026],["a",43.84,144.28,1978,2026],["a",42.08,143.03,1978,2026],["a",41.56,140.27,1978,2026],["a",43.72,144.99,1978,2026],["a",38.77,140.87,1978,2001],["a",37.29,140.22,1978,2026],["a",37.09,139.53,1978,2026],["a",43.41,141.75,1978,1983],["a",43.68,141.85,1978,2005],["a",40.47,141.18,1978,2026],["a",40.32,140.29,1978,2026],["a",37.25,140.72,1978,2026],["a",32.78,131.45,1978,2010],["a",42.13,143.31,1978,2026],["a",27.04,128.4,1978,2026],["a",39.81,140.59,1978,2026],["a",44.28,142.16,1979,2026],["a",43.3,142.52,1979,2026],["a",33.62,134.11,1979,2026],["a",37.72,140.06,1979,2026],["a",42.94,144.74,1979,2026],["a",45.52,141.94,1979,2026],["a",45.34,142.17,1979,2026],["a",42.79,143.33,1979,2026],["a",43.59,141.73,1979,2026],["a",42.22,142.95,1979,2026],["a",40.01,140.8,1979,2026],["a",38.4,141.6,1979,2021],["a",39.18,139.54,1979,2026],["a",38.39,139.99,1979,2026],["a",37.89,140.44,1979,2026],["a",37.28,140.06,1979,2026],["a",37.01,139.38,1979,2026],["a",28.32,129.93,1979,2026],["a",36.88,137.87,1979,2026],["a",37.83,140.73,1979,2026],["a",35.92,136.83,1979,2026],["a",36.27,138.31,1979,2026],["a",35.48,136.57,1979,2026],["a",37.23,138.32,1979,2026],["a",35.27,135.55,1979,2026],["a",35.19,133.23,1979,2026],["a",36.06,137.03,1979,2026],["a",36.27,136.9,1979,2026],["a",36.1,133.1,1979,2026],["a",36.3,137.1,1979,2026],["a",36.83,136.97,1979,2026],["a",35.33,132.73,1979,2026],["a",36.02,137.39,1979,2026],["a",36.09,137.68,1979,2026],["a",35.6,137.32,1979,2026],["a",35.94,137.6,1979,2026],["a",38.33,138.51,1979,2026],["a",36.01,135.99,1979,2026],["a",35.37,137.69,1979,2026],["a",38.08,139.39,1979,2026],["a",35.98,137.98,1979,2026],["a",35.0,132.71,1979,2026],["a",34.78,132.11,1979,2026],["a",34.35,131.94,1979,2006],["a",35.32,137.93,1979,2026],["a",36.38,136.44,1979,2026],["a",34.76,133.28,1979,2026],["a",34.37,132.19,1979,2026],["a",33.99,134.04,1979,2026],["a",35.3,133.72,1979,2026],["a",42.56,140.81,1979,2026],["a",35.1,133.44,1979,2026],["a",36.61,140.32,1979,2026],["a",40.09,141.71,1979,2026],["a",36.73,139.68,1979,2022],["a",36.76,139.88,1979,2026],["a",34.78,138.14,1979,2026],["a",35.07,132.33,1979,2026],["a",34.22,134.72,1979,2026],["a",35.22,138.22,1979,2026],["a",35.31,137.81,1979,2026],["a",41.92,143.24,1979,2026],["a",34.93,137.57,1979,2002],["a",34.31,135.53,1979,2026],["a",32.52,131.34,1979,2026],["a",34.84,137.22,1979,2026],["a",32.24,131.15,1979,2026],["a",35.22,136.7,1979,2026],["a",33.64,135.71,1979,2026],["a",32.64,131.16,1979,2026],["a",34.21,136.33,1979,2026],["a",33.25,132.68,1979,2026],["a",33.77,133.34,1979,2026],["a",33.77,134.2,1979,2026],["a",32.38,131.33,1979,2026],["a",24.05,123.77,1979,2026],["a",34.63,136.32,1979,2026],["a",38.51,139.78,1979,2026],["a",33.93,134.33,1979,2009],["a",37.35,139.56,1979,2009],["a",36.49,138.07,1979,2026],["a",35.2,136.34,1979,2009],["a",34.87,132.41,1979,2004],["a",36.02,136.88,1980,1990],["a",37.3,139.22,1980,2009],["a",38.41,140.72,1980,2026],["a",34.42,136.07,1980,2009],["a",34.34,131.63,1981,2026],["a",32.4,130.83,1981,2026],["a",38.25,139.6,1981,2026],["a",37.2,139.06,1981,2026],["a",35.3,133.99,1981,2026],["a",37.91,139.84,1981,2026],["a",26.68,127.9,1981,2026],["a",26.63,128.15,1981,2026],["a",36.75,139.1,1981,2009],["a",34.49,135.7,1981,2026],["a",34.42,135.81,1981,1990],["a",35.18,135.42,1982,2026],["a",35.37,135.05,1982,2013],["a",35.29,135.26,1982,2021],["a",34.31,136.87,1982,2026],["a",35.91,136.67,1982,2026],["a",35.22,135.23,1982,2026],["a",35.66,137.43,1982,2026],["a",35.33,134.11,1982,2026],["a",37.39,140.09,1982,2026],["a",36.15,136.91,1982,2026],["a",36.33,140.03,1982,2026],["a",35.29,133.48,1982,2026],["a",35.56,136.54,1982,2009],["a",35.41,134.02,1982,2026],["a",35.45,137.7,1982,2007],["a",34.9,137.94,1982,2026],["a",35.56,138.04,1983,2026],["a",37.04,138.85,1983,2026],["a",36.19,137.37,1983,1990],["a",35.73,138.09,1983,2026],["a",37.58,139.14,1983,2026],["a",36.11,138.65,1983,2003],["a",43.43,141.81,1983,2026],["a",43.08,142.1,1983,2026],["a",42.96,142.02,1983,2026],["a",43.15,144.5,1983,2026],["a",43.59,143.68,1983,2026],["a",43.12,143.44,1983,2026],["a",40.52,140.78,1983,2026],["a",39.1,140.29,1983,2026],["a",40.35,140.78,1983,2026],["a",43.36,143.46,1983,2026],["a",43.32,143.8,1983,2026],["a",36.82,137.93,1983,2026],["a",36.85,137.56,1984,2026],["a",36.43,136.95,1984,2004],["a",36.61,137.28,1984,2026],["a",36.49,137.24,1984,1996],["a",41.8,140.95,1984,2003],["a",43.17,144.97,1984,2026],["a",42.92,143.66,1984,2026],["a",43.61,142.2,1984,2026],["a",43.95,143.33,1984,2026],["a",36.74,140.59,1985,2026],["a",39.94,139.78,1985,2026],["a",33.85,135.98,1985,2026],["a",36.89,138.28,1985,2026],["a",39.8,140.22,1985,2026],["a",37.2,138.52,1985,2026],["a",37.03,138.34,1985,2026],["a",38.22,140.19,1985,2009],["a",42.52,141.11,1985,2026],["a",42.63,142.39,1985,2026],["a",32.56,131.53,1987,2026],["a",32.47,131.16,1987,2011],["a",32.3,130.75,1991,2026],["a",36.01,136.89,1991,2026],["a",36.18,137.04,1991,2026],["a",36.19,137.37,1991,2026],["a",34.38,135.9,1991,2026],["a",35.05,138.25,1991,2026],["a",32.58,129.74,1991,2021],["a",32.73,130.31,1991,2002],["a",35.32,139.45,1992,2026],["a",37.55,139.37,1993,2026],["a",35.83,137.96,1993,2026],["a",32.75,130.28,1993,2002],["a",39.65,141.35,1986,2026],["a",34.59,135.02,1995,2004],["a",34.74,135.31,1995,2004],["a",34.64,135.07,1995,2004],["a",32.82,130.29,1995,1998],["a",32.79,130.2,1995,1998],["a",34.7,129.44,1995,2026],["a",35.48,135.62,1996,2026],["a",36.47,137.24,1981,2026],["a",33.45,132.26,1997,2026],["a",34.28,135.0,1998,2026],["a",43.67,142.45,2003,2026],["a",42.77,141.69,2003,2026],["a",43.88,144.16,2003,2026],["a",43.04,144.19,2003,2026],["a",41.77,140.82,2003,2026],["a",40.19,140.37,2003,2026],["a",38.14,140.92,2003,2026],["a",38.81,139.79,2003,2026],["a",37.23,140.43,2003,2026],["a",34.78,139.36,2003,2026],["a",33.12,139.78,2003,2026],["a",37.95,139.11,2003,2026],["a",34.6,135.6,2003,2026],["a",34.43,135.23,2003,2026],["a",34.44,132.92,2003,2026],["a",36.18,133.32,2003,2026],["a",34.67,131.79,2003,2026],["a",34.21,134.01,2003,2026],["a",33.55,133.67,2003,2026],["a",33.58,130.45,2003,2026],["a",33.75,129.78,2003,2026],["a",32.66,128.83,2003,2026],["a",33.15,130.3,2003,2026],["a",31.88,131.45,2003,2026],["a",26.19,127.64,2003,2026],["a",24.78,125.3,2003,2026],["a",24.34,124.19,2003,2013],["a",33.89,135.22,1999,2026],["a",37.27,136.92,1999,2003],["a",44.3,143.4,2003,2026],["a",38.41,140.37,2003,2026],["a",43.58,144.96,2003,2026],["a",24.83,125.14,2003,2026],["a",24.65,124.67,2003,2026],["a",24.47,122.98,2003,2026],["a",24.06,123.8,2003,2019],["a",40.73,140.69,2003,2026],["a",42.58,140.71,2000,2000],["a",35.99,139.21,2000,2026],["a",42.55,140.77,2000,2002],["a",42.55,140.85,2000,2004],["a",42.54,140.78,2000,2004],["a",42.59,140.79,2000,2000],["a",42.52,140.83,2000,2000],["a",42.57,140.8,2000,2000],["a",34.2,139.13,2000,2006],["a",34.07,139.56,2000,2026],["a",43.11,141.6,2001,2026],["a",39.44,141.81,2001,2026],["a",34.08,139.48,2001,2008],["a",42.73,143.22,2003,2026],["a",39.62,140.22,2003,2026],["a",45.24,141.19,2003,2026],["a",42.07,139.43,2003,2026],["a",38.06,138.41,2003,2020],["a",26.59,127.24,2003,2026],["a",26.17,127.29,2003,2019],["a",25.94,131.33,2003,2026],["a",25.85,131.26,2003,2026],["a",35.53,134.16,2003,2026],["a",28.43,129.71,2003,2026],["a",33.83,132.7,2003,2026],["a",34.37,139.27,2003,2026],["a",34.19,139.13,2003,2026],["a",35.38,136.34,2001,2026],["a",34.12,139.5,2001,2008],["a",38.8,140.95,2001,2026],["a",33.84,130.95,2003,2006],["a",45.4,141.8,2003,2026],["a",36.17,137.92,2003,2026],["a",36.28,139.99,2002,2026],["a",34.76,133.85,2003,2026],["a",33.93,136.14,2002,2026],["a",36.65,137.19,2003,2026],["a",26.36,126.71,2003,2026],["a",33.19,129.09,2003,2020],["a",33.01,129.19,2003,2020],["a",36.14,136.22,2003,2026],["a",34.28,129.33,2003,2026],["a",38.46,140.35,2002,2026],["a",29.84,129.87,2003,2026],["a",34.91,137.52,2003,2026],["a",27.84,128.88,2003,2026],["a",41.72,141.0,2003,2026],["a",37.29,136.96,2003,2026],["a",36.79,136.77,2003,2026],["a",45.3,141.04,2004,2026],["a",43.52,144.75,2004,2026],["a",36.07,138.61,2004,2026],["a",36.1,138.23,2004,2026],["a",35.95,138.11,2004,2026],["a",41.6,140.38,2004,2026],["a",36.43,136.94,2005,2026],["a",33.19,130.91,2005,2026],["a",34.86,136.81,2005,2026],["a",32.8,132.87,2006,2026],["a",39.04,141.3,2006,2026],["a",39.23,141.01,2006,2026],["a",41.31,140.96,2006,2026],["a",39.78,141.1,2006,2026],["a",38.57,140.73,2006,2026],["a",38.12,140.21,2006,2026],["a",39.46,141.51,2006,2026],["a",38.13,140.68,2006,2026],["a",35.91,136.17,1990,2026],["a",43.55,142.07,2006,2026],["a",43.66,141.89,2006,2026],["a",43.58,143.87,2006,2026],["a",43.62,143.44,2006,2026],["a",44.61,142.29,2006,2026],["a",43.51,143.15,2006,2026],["a",44.11,142.35,2006,2026],["a",45.01,141.85,2006,2026],["a",43.14,142.42,2006,2026],["a",34.5,132.29,2006,2026],["a",35.08,137.41,2006,2026],["a",35.72,136.78,2006,2026],["a",35.31,135.83,2006,2026],["a",34.65,132.44,2006,2026],["a",32.7,130.66,2006,2026],["a",32.24,130.65,2006,2026],["a",34.93,132.83,2006,2026],["a",34.72,132.66,2006,2026],["a",35.18,133.81,2006,2026],["a",34.82,133.71,2006,2026],["a",26.73,128.18,2006,2026],["a",34.63,135.22,2006,2026],["a",34.75,135.34,2006,2026],["a",33.66,135.36,2006,2026],["a",33.84,131.03,2006,2026],["a",35.75,137.91,2006,2007],["a",34.39,131.89,2007,2026],["a",45.45,141.04,2003,2009],["a",42.61,142.15,1988,2004],["a",26.64,142.16,2007,2026],["a",26.36,127.97,2008,2026],["a",38.86,140.84,2008,2008],["a",38.98,140.91,2008,2008],["a",35.81,138.66,2009,2026],["a",38.94,140.82,1984,1997],["a",34.8,138.19,2009,2026],["a",34.86,135.56,2010,2026],["a",34.57,132.84,2010,2026],["a",33.61,134.35,2009,2026],["a",36.64,140.12,2009,2026],["a",34.16,132.75,2009,2026],["a",36.93,140.73,2009,2026],["a",32.28,131.54,2010,2026],["a",32.68,131.41,2010,2026],["a",33.46,129.96,2010,2026],["a",33.49,130.35,2010,2026],["a",33.38,130.52,2010,2026],["a",32.71,130.96,2010,2026],["a",34.23,131.81,2010,2026],["a",42.78,140.67,2010,2026],["a",33.41,130.22,2010,2026],["a",43.74,144.34,2010,2026],["a",34.96,133.81,2010,2026],["a",34.27,135.88,2010,2026],["a",34.12,131.18,2010,2026],["a",36.58,137.38,2010,2026],["a",31.93,131.01,2011,2013],["a",31.81,131.04,2011,2013],["a",31.89,130.82,2011,2013],["a",38.45,141.45,2011,2026],["a",39.64,141.77,2011,2021],["a",39.36,141.91,2011,2021],["a",39.02,141.63,2011,2021],["a",38.56,141.25,2011,2021],["a",38.43,141.21,2011,2021],["a",38.11,140.88,2011,2021],["a",37.88,140.92,2011,2021],["a",37.09,140.56,2011,2021],["a",36.71,140.72,2011,2018],["a",32.48,131.1,2012,2026],["a",33.78,130.87,2012,2026],["a",34.99,136.94,2013,2026],["a",24.39,124.25,2013,2026],["a",35.56,138.45,2013,2026],["a",35.42,135.09,2013,2026],["a",34.75,139.36,2014,2014],["a",34.78,139.42,2014,2016],["a",34.68,139.41,2014,2016],["a",37.83,139.24,2014,2026],["a",34.53,139.28,2014,2026],["a",29.15,129.2,2014,2026],["a",32.47,139.76,2014,2026],["a",34.0,135.97,2014,2026],["a",37.85,136.92,2014,2026],["a",26.37,127.14,2014,2026],["a",39.78,140.76,2014,2026],["a",39.97,141.17,2014,2026],["a",29.61,129.71,2014,2026],["a",29.23,129.33,2014,2026],["a",45.42,141.06,2014,2014],["a",33.86,130.03,2014,2026],["a",29.68,129.53,2014,2026],["a",35.83,137.55,2014,2015],["a",32.83,131.01,2015,2026],["a",36.11,139.98,2015,2018],["a",35.01,137.94,2016,2026],["a",31.84,131.31,2017,2026],["a",38.97,140.0,2018,2026],["a",42.73,142.0,2018,2018],["a",35.94,137.79,2019,2026],["a",33.22,130.11,2019,2021],["a",35.21,138.37,2020,2026],["a",33.95,135.86,2021,2026],["a",32.58,129.78,2021,2026],["a",35.3,135.31,2021,2026],["a",33.01,129.65,2021,2026],["a",35.12,139.08,2021,2024],["a",43.78,141.96,2023,2026],["a",36.75,139.62,2023,2026],["a",32.74,130.25,1976,2002],["a",33.87,133.98,2025,2026],["a",38.52,139.79,2026,2026],["s",45.41,141.68,1938,2026],["s",44.94,142.59,1942,2026],["s",44.36,141.7,1921,2026],["s",44.58,142.96,1942,2026],["s",43.95,141.63,1943,2026],["s",43.76,142.37,1888,2026],["s",44.02,144.28,1889,2026],["s",43.18,141.01,1943,2026],["s",43.06,141.33,1876,2026],["s",43.21,141.78,1946,2026],["s",42.92,143.21,1892,2026],["s",42.98,144.38,1889,2026],["s",43.33,145.59,1879,2026],["s",42.8,140.22,1884,2026],["s",42.31,140.97,1923,2026],["s",42.62,141.55,1942,2026],["s",42.16,142.78,1927,2026],["s",41.87,140.12,1941,2026],["s",41.82,140.75,1872,2026],["s",42.9,140.76,1944,2026],["s",44.34,143.35,1956,2026],["s",42.29,143.32,1958,2026],["s",39.06,141.71,1963,2026],["s",38.76,140.31,1957,2026],["s",37.49,139.91,1953,2026],["s",40.65,139.93,1940,2026],["s",40.82,140.77,1882,2026],["s",41.28,141.21,1935,2026],["s",40.53,141.52,1936,2026],["s",39.72,140.1,1882,2026],["s",39.7,141.16,1923,2026],["s",39.65,141.97,1883,2026],["s",38.91,139.84,1937,2026],["s",38.26,140.34,1889,2026],["s",38.26,140.9,1926,2026],["s",38.43,141.3,1887,2026],["s",37.76,140.47,1889,2026],["s",37.13,140.22,1940,2026],["s",36.95,140.9,1910,2026],["s",37.39,136.9,1929,2026],["s",38.03,138.24,1911,2026],["s",37.89,139.02,1881,2026],["s",36.59,136.63,1882,2026],["s",36.79,137.06,1883,2026],["s",36.71,137.2,1939,2026],["s",36.66,138.19,1889,2026],["s",37.11,138.25,1922,2026],["s",36.55,139.87,1890,2026],["s",36.05,136.22,1897,2026],["s",36.16,137.25,1899,2026],["s",36.25,137.97,1898,2026],["s",36.05,138.11,1945,2026],["s",36.34,138.55,1925,2026],["s",36.41,139.06,1896,2026],["s",36.15,139.38,1896,2026],["s",36.38,140.47,1897,2026],["s",35.65,136.06,1897,2026],["s",35.4,136.76,1883,2026],["s",35.17,136.97,1890,2026],["s",35.52,137.82,1897,2026],["s",35.67,138.55,1894,2026],["s",35.36,138.73,1932,2026],["s",35.5,138.76,1933,2026],["s",35.99,139.07,1926,2026],["s",36.06,140.13,1921,2026],["s",35.74,140.86,1887,2026],["s",34.76,136.14,1937,2026],["s",34.73,136.52,1889,2026],["s",34.63,137.09,1947,2026],["s",34.75,137.71,1882,2026],["s",34.6,138.21,1932,2026],["s",34.98,138.4,1940,2026],["s",35.11,138.93,1930,2026],["s",35.69,139.75,1875,2026],["s",34.07,136.19,1938,2026],["s",34.6,138.84,1939,2026],["s",35.05,139.09,1937,2026],["s",35.44,139.65,1896,2026],["s",34.99,139.87,1968,2026],["s",35.15,140.31,1906,2026],["s",34.75,139.36,1938,2026],["s",34.12,139.52,1942,2026],["s",33.12,139.78,1906,2026],["s",35.6,140.1,1966,2026],["s",34.94,136.58,1966,2026],["s",36.74,139.5,1944,2026],["s",36.2,133.33,1939,2026],["s",35.46,133.06,1940,2026],["s",35.54,133.24,1883,2026],["s",35.43,133.34,1939,2026],["s",35.49,134.24,1943,2026],["s",35.53,134.82,1918,2026],["s",35.45,135.32,1947,2026],["s",35.42,136.41,1919,2001],["s",34.41,131.41,1948,2026],["s",34.9,132.07,1893,2026],["s",35.06,134.01,1943,2026],["s",35.01,135.73,1880,2026],["s",35.27,136.24,1893,2026],["s",33.95,130.93,1883,2026],["s",34.4,132.46,1879,2026],["s",34.24,132.55,1894,2026],["s",34.45,133.25,1942,2026],["s",34.69,133.93,1891,2026],["s",34.84,134.67,1948,2026],["s",34.7,135.21,1896,2026],["s",34.68,135.52,1883,2026],["s",34.31,134.85,1919,2026],["s",34.23,135.16,1879,2026],["s",33.45,135.76,1913,2026],["s",34.67,135.84,1953,2026],["s",34.16,131.46,1966,2026],["s",34.2,129.29,1886,2026],["s",33.36,129.55,1940,2026],["s",33.58,130.38,1890,2026],["s",33.65,130.69,1935,2026],["s",33.16,129.73,1946,2026],["s",33.27,130.31,1890,2026],["s",33.32,130.93,1942,2026],["s",33.23,131.62,1887,2026],["s",32.73,129.87,1878,2026],["s",32.74,130.26,1924,2026],["s",32.81,130.71,1890,2026],["s",32.88,131.07,1931,2017],["s",32.58,131.66,1961,2026],["s",32.03,130.2,1939,2026],["s",32.22,130.75,1943,2026],["s",31.55,130.55,1883,2026],["s",31.73,131.08,1942,2026],["s",31.94,131.41,1886,2026],["s",31.27,130.29,1923,2026],["s",31.58,131.41,1949,2026],["s",30.39,130.66,1937,2026],["s",30.72,130.98,1948,2026],["s",32.2,130.03,1949,2026],["s",32.69,128.83,1962,2026],["s",33.84,132.78,1890,2026],["s",34.27,133.75,1892,2026],["s",34.32,134.05,1941,2026],["s",33.23,132.55,1922,2026],["s",33.57,133.55,1886,2026],["s",33.85,134.1,1944,2001],["s",34.07,134.57,1891,2026],["s",32.91,132.72,1943,2026],["s",32.72,133.01,1940,2026],["s",33.25,134.18,1920,2026],["s",28.39,129.49,1896,2026],["s",24.47,123.01,1956,2026],["s",24.43,123.77,1954,2026],["s",24.34,124.16,1896,2026],["s",24.79,125.28,1937,2026],["s",26.34,126.8,1958,2026],["s",26.21,127.69,1890,2026],["s",26.59,127.97,1966,2026],["s",27.43,128.71,1969,2026],["s",25.83,131.23,1942,2026],["s",27.09,142.19,1968,2026]];
+var KOKUSHO={1927:1,1933:1,1978:1,1994:3,1997:1,1998:1,2001:2,2004:2,2007:7,2013:8,2018:17,2019:6,2020:8,2021:1,2022:8,2023:2,2024:9,2025:30,2026:36};
+var REDUCED=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+var NS="http://www.w3.org/2000/svg";
+function $(id){return document.getElementById(id);}
+function el(tag,attrs,parent){var e=document.createElementNS(NS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function txt(svg,x,y,s,extra){var a={x:x,y:y};for(var k in extra)a[k]=extra[k];var t=el("text",a,svg);t.textContent=s;return t;}
+function fmt(n){return n.toLocaleString("ja-JP");}
+function esc(s){return s.replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
+
+/* colour ramp shared with the analysis pages */
+var COOL=["#0d366b","#1c5cab","#3987e5","#86b6ef","#cde2fb"],WARM=["#fbd0c4","#f2917a","#e05a45","#b8322a","#7a1712"],MID="#3a4048";
+function h2r(h){return [1,3,5].map(function(i){return parseInt(h.substr(i,2),16);});}
+function lerp(a,b,t){var A=h2r(a),B=h2r(b);return "rgb("+A.map(function(x,i){return Math.round(x+(B[i]-x)*t);}).join(",")+")";}
+function ramp(s,t){t=Math.max(0,Math.min(1,t));var n=s.length-1,i=Math.min(n-1,Math.floor(t*n));return lerp(s[i],s[i+1],t*n-i);}
+function div(v){var t=Math.max(-1,Math.min(1,v/1.4));return t<0?ramp(COOL.concat([MID]),1+t):ramp([MID].concat(WARM),t);}
+
+/* ---------- a small sequencer: steps run on a timer, loop, can pause ---------- */
+function Player(steps){this.steps=steps;this.i=0;this.timer=null;this.paused=false;this.visible=false;}
+Player.prototype.run=function(){
+  var self=this;clearTimeout(this.timer);
+  if(this.paused||!this.visible)return;
+  if(this.i>=this.steps.length)this.i=0;
+  var wait=this.steps[this.i++]()||600;
+  this.timer=setTimeout(function(){self.run();},wait);
+};
+Player.prototype.setVisible=function(v){var was=this.visible;this.visible=v;if(v&&!was)this.run();if(!v)clearTimeout(this.timer);};
+Player.prototype.togglePause=function(){this.paused=!this.paused;if(!this.paused)this.run();else clearTimeout(this.timer);return this.paused;};
+var players={};
+function observe(node,p){
+  if(!("IntersectionObserver" in window)){p.setVisible(true);return;}
+  new IntersectionObserver(function(es){es.forEach(function(e){p.setVisible(e.isIntersecting);});},{threshold:.25}).observe(node);
+}
+var IC_PLAY='<svg class="i" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>',IC_PAUSE='<svg class="i" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="3" width="5" height="18" rx="1"/> <rect x="5" y="3" width="5" height="18" rx="1"/></svg>',IC_CHECK='<svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+function setPauseLabel(name){var b=document.querySelector('[data-pause="'+name+'"]');if(b)b.innerHTML=players[name].paused?IC_PLAY+"<span>自動再生を開始</span>":IC_PAUSE+"<span>自動再生を停止</span>";}
+
+/* ---------- terminal helper ---------- */
+function Term(node){this.node=node;}
+Term.prototype.clear=function(){this.node.innerHTML="";};
+Term.prototype.line=function(cls,html){var d=document.createElement("div");d.className="ln "+cls;d.innerHTML=html;this.node.appendChild(d);return d;};
+Term.prototype.type=function(cls,text,url){
+  var d=this.line(cls,""),full=text+" ",all=full.length+url.length,i=0;
+  function tick(){
+    i+=2;var a=Math.min(i,full.length),b=Math.max(0,i-full.length);
+    d.innerHTML=esc(full.slice(0,a))+(b>0?'<span class="url">'+esc(url.slice(0,b))+"</span>":"")+(i<all?'<span class="caret"></span>':"");
+    if(i<all)setTimeout(tick,28);
+  }
+  tick();return Math.ceil(all/2)*28+200;
+};
+
+/* ---------- charts drawn into the 520x150 svg ---------- */
+function grow(node,axis,delay){ // bar grows from its base once the answer is shown
+  if(REDUCED)return;
+  node.style.transformBox="fill-box";node.style.transformOrigin=axis==="x"?"left center":"center bottom";
+  node.style.transform=axis==="x"?"scaleX(0)":"scaleY(0)";
+  node.getBoundingClientRect();
+  node.style.transition="transform .7s cubic-bezier(.2,.7,.2,1) "+delay.toFixed(3)+"s";
+  requestAnimationFrame(function(){node.style.transform="none";});
+}
+function fadeIn(node,delay){
+  if(REDUCED)return;
+  node.style.opacity=0;node.getBoundingClientRect();node.style.transition="opacity .4s ease "+delay.toFixed(3)+"s";
+  requestAnimationFrame(function(){node.style.opacity=1;});
+}
+function stripesChart(svg,on){
+  svg.innerHTML="";var n=STRIPES.length,w=500/n;
+  if(on)STRIPES.forEach(function(v,i){
+    var r=el("rect",{x:(10+i*w).toFixed(2),y:6,width:(w+.6).toFixed(2),height:110,fill:div(v)},svg);
+    el("title",{},r).textContent=(1898+i)+"年 "+(v>0?"+":"")+v.toFixed(2)+"℃";
+    fadeIn(r,i*0.012);
+  });
+  txt(svg,10,136,"1898");txt(svg,510,136,"2025",{"text-anchor":"end"});
+  txt(svg,260,136,"年平均気温の偏差（1991〜2020年の平均との差）",{"text-anchor":"middle"});
+}
+function kokushoChart(svg,on){
+  svg.innerHTML="";var y0=1927,n=100,w=500/n,base=116,max=36,hh=104;
+  [10,20,30].forEach(function(v){var y=base-v/max*hh;el("line",{x1:10,x2:510,y1:y,y2:y,stroke:"rgba(255,255,255,.08)"},svg);txt(svg,10,y-3,v+"回");});
+  if(on)Object.keys(KOKUSHO).forEach(function(k){
+    var yr=+k,c=KOKUSHO[k],h=c/max*hh;
+    var r=el("rect",{x:(10+(yr-y0)*w).toFixed(2),y:(base-h).toFixed(1),width:Math.max(2,w-1).toFixed(2),height:h.toFixed(1),rx:1,fill:yr>=2018?"#f2917a":"#86b6ef"},svg);
+    el("title",{},r).textContent=yr+"年 "+c+"回";
+    grow(r,"y",(yr-y0)*0.01);
+  });
+  el("line",{x1:10,x2:510,y1:base,y2:base,stroke:"rgba(255,255,255,.25)"},svg);
+  [1930,1960,1990,2020].forEach(function(v){txt(svg,10+(v-y0)*w,136,v,{"text-anchor":"middle"});});
+}
+function pairChart(svg,on,o){ // two periods, days per station per year
+  svg.innerHTML="";var max=o.max,base=112,hh=92;
+  [[o.a,"1980年代"],[o.b,"2016〜2025年"]].forEach(function(p,i){
+    var x=120+i*170,h=parseFloat(p[0])/max*hh;
+    if(on){grow(el("rect",{x:x,y:(base-h).toFixed(1),width:110,height:h.toFixed(1),rx:3,fill:i?"#f2917a":"#86b6ef"},svg),"y",i*0.25);
+      fadeIn(txt(svg,x+55,base-h-8,p[0]+"日",{"text-anchor":"middle",style:"fill:#e6edf3;font-size:13px;font-weight:700"}),i*0.25+0.6);}
+    txt(svg,x+55,base+16,p[1],{"text-anchor":"middle"});
+  });
+  el("line",{x1:90,x2:430,y1:base,y2:base,stroke:"rgba(255,255,255,.25)"},svg);
+  txt(svg,260,144,o.note,{"text-anchor":"middle"});
+}
+function snowChart(svg,on){
+  svg.innerHTML="";var s=330/90;
+  [["寒い雪国",82,79,"−4%"],["中間",46,42,"−8%"],["暖かい雪国",48,35,"−28%"]].forEach(function(r,i){
+    var y=10+i*42,hot=i===2,d=i*0.12;
+    txt(svg,10,y+17,r[0]);
+    if(!on)return;
+    grow(el("rect",{x:96,y:y,width:(r[1]*s).toFixed(1),height:11,rx:2,fill:"rgba(134,182,239,.35)"},svg),"x",d);
+    grow(el("rect",{x:96,y:y+14,width:(r[2]*s).toFixed(1),height:11,rx:2,fill:hot?"#f2917a":"#86b6ef"},svg),"x",d+0.15);
+    fadeIn(txt(svg,96+r[1]*s+8,y+10,r[1]+"cm"),d+0.5);
+    fadeIn(txt(svg,96+r[1]*s+8,y+24,r[2]+"cm  "+r[3],{style:"fill:"+(hot?"#f2917a":"#e6edf3")}),d+0.6);
+  });
+  txt(svg,96,142,"淡い棒：1962〜91年の冬　濃い棒：1997〜2026年の冬（冬の最深積雪の平均）");
+}
+function resortChart(svg,on){
+  svg.innerHTML="";var x0=140,s=260/32;
+  [["野辺山",1350,0.3,1.1],["菅平",1253,0.1,0.0],["原村",1017,6.3,26.3],["軽井沢",999,3.8,8.5],["河口湖",859,10.3,30.0],["那須高原",749,1.7,8.1]].forEach(function(r,i){
+    var y=4+i*20,hot=r[1]<1200,d=i*0.07;
+    txt(svg,10,y+11,r[0]);txt(svg,x0-8,y+11,r[1]+"m",{"text-anchor":"end"});
+    if(!on)return;
+    grow(el("rect",{x:x0,y:y,width:Math.max(1.5,r[2]*s).toFixed(1),height:6,rx:1.5,fill:"rgba(134,182,239,.45)"},svg),"x",d);
+    grow(el("rect",{x:x0,y:y+7,width:Math.max(1.5,r[3]*s).toFixed(1),height:7,rx:1.5,fill:hot?"#f2917a":"#86b6ef"},svg),"x",d+0.15);
+    fadeIn(txt(svg,x0+Math.max(1.5,r[3]*s)+6,y+14,r[2].toFixed(1)+" → "+r[3].toFixed(1)+"日",{style:"fill:"+(hot?"#f2917a":"#e6edf3")}),d+0.6);
+  });
+  txt(svg,10,142,"真夏日（最高30℃以上）の年間日数　淡い棒：1976〜95年　濃い棒：2016〜25年");
+}
+var SEPT=[[1961,136],[1962,130],[1963,95],[1964,68],[1965,98],[1966,90],[1967,83],[1968,102],[1969,102],[1970,78],[1971,65],[1972,131],[1973,114],[1974,95],[1975,143],[1976,107],[1977,100],[1978,78],[1979,97],[1980,93],[1981,103],[1982,88],[1983,77],[1984,123],[1985,89],[1986,102],[1987,85],[1988,37],[1989,91],[1990,102],[1991,69],[1992,126],[1993,67],[1994,97],[1995,103],[1996,108],[1997,74],[1998,71],[1999,101],[2000,100],[2001,91],[2002,94],[2003,117],[2004,101],[2006,90],[2008,98],[2009,107],[2010,125],[2011,134],[2012,124],[2013,126],[2014,122],[2015,88],[2016,73],[2017,112],[2018,69],[2019,114],[2020,85],[2021,87],[2022,100],[2024,120],[2025,126],[2026,37]];
+function septChart(svg,on){
+  svg.innerHTML="";var y0=1961,n=66,w=460/n,base=116,hh=104,max=150,HALO="paint-order:stroke;stroke:var(--panel);stroke-width:3px;";
+  var y100=base-100/max*hh;
+  el("line",{x1:10,x2:472,y1:y100,y2:y100,stroke:"rgba(255,255,255,.3)","stroke-dasharray":"4 3"},svg);txt(svg,476,y100+4,"平年");
+  if(on)SEPT.forEach(function(d,i){
+    var h=d[1]/max*hh;
+    var r=el("rect",{x:(10+(d[0]-y0)*w+.5).toFixed(2),y:(base-h).toFixed(1),width:(w-1).toFixed(2),height:h.toFixed(1),rx:1,fill:d[0]===2026?"#f2917a":d[0]===1988?"#c4b5fd":"rgba(134,182,239,.5)"},svg);
+    el("title",{},r).textContent=d[0]+"年9月 "+d[1]+"%";
+    grow(r,"y",i*0.012);
+  });
+  el("line",{x1:10,x2:470,y1:base,y2:base,stroke:"rgba(255,255,255,.25)"},svg);
+  if(on){fadeIn(txt(svg,10+(1988-y0+.5)*w,base-37/max*hh-6,"1988年 37%",{"text-anchor":"middle",style:HALO+"fill:#c4b5fd;font-weight:700"}),0.9);
+    fadeIn(txt(svg,10+(2026-y0+1)*w,base-37/max*hh-6,"2026年 37%",{"text-anchor":"end",style:HALO+"fill:#f2917a;font-weight:700"}),1.1);}
+  [1970,1990,2010].forEach(function(v){txt(svg,10+(v-y0+.5)*w,132,v,{"text-anchor":"middle"});});
+  txt(svg,240,146,"関東の9月の日照時間（平年比、気象台7地点の平均）",{"text-anchor":"middle"});
+}
+
+/* ---------- hero: seven questions ---------- */
+(function(){
+  var term=new Term($("q-term")),svg=$("q-viz"),res=$("q-result"),btns=[].slice.call(document.querySelectorAll(".qtabs button"));
+  var U="https://hotchpotch.github.io/japan-weather-dataset/llms.txt";
+  var QS=[
+    {q:"最高気温40℃以上の日は増えている？",s:["日最高気温40℃以上の日を1927年から数える","同じ789地点に絞り、測り方の段差を補正"],r:"延べ144回のうち117回が2018年以降",big:"約7倍",cap:"同じ789地点、1979〜2002年と2003〜2026年の比較",chart:kokushoChart},
+    {q:"日本で温暖化は本当に起きているの？",s:["15地点の年平均気温を1898年から集計","移転の補正と、都市を除いた比較"],r:"1980年以降のデータがそろう805地点では、すべての地点で上昇",big:"+1.43℃",cap:"100年あたりの上昇（15地点の平均、1898〜2025年）",chart:stripesChart},
+    {q:"猛暑日は昔より増えている？",s:["807地点で日最高気温35℃以上の日を数える","アメダスの2003年の段差を補正"],r:"1地点あたり年0.76日から6.20日へ",big:"約8倍",cap:"猛暑日（1980年代の平均と2016〜2025年の平均）",chart:function(v,on){pairChart(v,on,{a:"0.76",b:"6.20",max:6.6,note:"猛暑日（日最高気温35℃以上）の年間日数、1地点あたり"});}},
+    {q:"熱帯夜はどれくらい増えた？",s:["807地点で日最低気温25℃以上の日を数える（熱帯夜の近似）","アメダスの2003年の段差を補正"],r:"1地点あたり年3.68日から12.2日へ",big:"約3.3倍",cap:"熱帯夜（1980年代の平均と2016〜2025年の平均）",chart:function(v,on){pairChart(v,on,{a:"3.68",b:"12.2",max:13,note:"日最低気温25℃以上の日の年間日数、1地点あたり"});}},
+    {q:"雪はどの場所で減少した？",s:["1962年以降の冬の最深積雪を、気象台65地点で比べる","真冬の平均気温で地点を3つに分ける"],r:"大きく減ったのは、真冬の平均気温が2℃を超える地域",big:"−28%",cap:"暖かい雪国（北陸・山陰の海沿いなど）の冬の最深積雪",chart:snowChart},
+    {q:"軽井沢などの避暑地は、今も涼しい？",s:["避暑地・別荘地18か所で、真夏日を1976〜95年と2016〜25年で比べる","アメダスの観測方法の変更による段差を補正"],r:"標高1,200m以上の高原は今も年0〜3日。標高700〜1,000mの別荘地では大きく増加",big:"8〜30日",cap:"標高700〜1,000mの別荘地の真夏日（年、1976〜95年は2〜10日）",chart:resortChart},
+    {q:"2026年9月の関東は、どれだけ晴れなかった？",s:["関東の気象台7地点で、9月の日照時間と降水量を集計","1961年以降の66年間の9月と比べる"],r:"日照時間は1961年以降で最少。ただし1988年9月もほぼ同じ。降水量は平年の2.6倍で最多",big:"37%",cap:"平年に対する9月の日照時間（関東の7地点の平均）",chart:septChart}
+  ];
+  var cur=0;
+  function press(n){btns.forEach(function(b,i){b.setAttribute("aria-pressed",i===n?"true":"false");});}
+  function finalState(n){var s=QS[n];press(n);term.clear();term.line("you",esc(s.q)+' <span class="url">'+U+"</span>");
+    term.line("step",s.s[0]);term.line("step",s.s[1]);term.line("res",s.r);s.chart(svg,true);
+    res.innerHTML="<b>"+s.big+"</b><span>"+s.cap+"</span>";res.style.opacity=1;}
+  function build(n){
+    var s=QS[n];return [
+      function(){press(n);term.clear();s.chart(svg,false);res.style.opacity=0;return 300;},
+      function(){return term.type("you",s.q,U)+400;},
+      function(){term.line("step run","llms.txt と SKILL.md を読む");return 700;},
+      function(){term.line("step run",s.s[0]);return 900;},
+      function(){term.line("step run",s.s[1]);return 900;},
+      function(){s.chart(svg,true);term.line("res",s.r);res.innerHTML="<b>"+s.big+"</b><span>"+s.cap+"</span>";res.style.transition="opacity .4s";res.style.opacity=1;return 5200;},
+      function(){cur=(cur+1)%QS.length;p.steps=build(cur);p.i=0;return 10;}
+    ];
+  }
+  finalState(0);
+  var p=new Player(build(0));players.q=p;if(REDUCED)p.paused=true;
+  btns.forEach(function(b,i){b.addEventListener("click",function(){
+    cur=i;clearTimeout(p.timer);
+    if(p.paused){finalState(i);return;}
+    p.steps=build(i);p.i=0;p.run();});});
+  observe($("q-demo"),p);
+})();
+
+/* ---------- station map ---------- */
+(function(){
+  var svg=$("map"),range=$("map-range"),yr=$("map-yr"),cO=$("map-o"),cA=$("map-a"),ev=$("map-ev");
+  var K=Math.cos(36*Math.PI/180),dots=[],g=el("g",{},svg);
+  ST.forEach(function(s){
+    var off=s[0]==="s";
+    var c=el("circle",{cx:((s[2]-122.5)*K*10+2).toFixed(1),cy:((45.8-s[1])*10+4).toFixed(1),r:off?1.9:1.15,fill:off?"#f0c36b":"#86b6ef"},g);
+    c.style.transition="opacity .35s";dots.push([c,off,s[3],s[4]]);
+  });
+  var EV=[[1872,"函館で観測が始まる"],[1875,"東京"],[1876,"札幌"],[1878,"長崎"],[1976,"アメダスの記録が始まる"]];
+  function show(y){
+    var o=0,a=0;
+    dots.forEach(function(d){var on=d[2]<=y&&y<=d[3];d[0].style.opacity=on?(d[1]?1:.85):0;if(on){if(d[1])o++;else a++;}});
+    yr.textContent=y;cO.textContent=fmt(o);cA.textContent=fmt(a);range.value=y;
+    var e="";EV.forEach(function(x){if(y>=x[0]&&y<x[0]+12)e=x[0]+"年　"+x[1];});
+    ev.textContent=y===2026?"":e;
+  }
+  show(2026);
+  var steps=[function(){show(1872);return 900;}];
+  for(var y=1873;y<=2026;y++)(function(y){steps.push(function(){show(y);return y===1976?1400:(y<1976?45:30);});})(y);
+  steps.push(function(){return 4500;});
+  var p=new Player(steps);players.map=p;if(REDUCED)p.paused=true;
+  range.addEventListener("input",function(){p.paused=true;clearTimeout(p.timer);setPauseLabel("map");show(+range.value);});
+  $("map-play").addEventListener("click",function(){p.i=0;p.paused=false;setPauseLabel("map");p.run();});
+  observe(svg,p);
+})();
+
+/* ---------- documents the agent reads ---------- */
+(function(){
+  var box=$("tree"),say=$("tree-say");
+  var T=[
+    {d:0,f:"llms.txt",t:"AIへの入口",x:"データの概要と、読むべき文書の一覧。ここからスキルへ進みます。"},
+    {d:1,f:"SKILL.md",t:"使い方の概要",x:"何に答えられるか、作業の手順、データの鮮度、守るべきこと（データセットにある分を気象庁から取得しない、出典の書き方など）。"},
+    {d:2,f:"references/download.md",t:"必要な部分だけ取得",x:"日別値の全体は約215MB、時別値は1990年代以降の1年分で約35〜42MB。問いに必要な年と要素だけを取得します。"},
+    {d:2,f:"references/schema.md",t:"列と品質情報",x:"日別値と時別値の列、品質情報、時刻の決まり（1〜24時）、manifest.json の読み方。"},
+    {d:2,f:"references/sql-recipes.md",t:"DuckDBの例",x:"地点の探し方、日別値・時別値の集計、冬ごとの積雪、均質番号の変化点の調べ方。"},
+    {d:2,f:"references/pitfalls.md",t:"長期比較の注意点",x:"観測場所の移転、アメダスの日最高・最低気温の2003年の段差、降雪量の2005年ごろの変化など、気候の変化と取り違えやすい点。"},
+    {d:2,f:"scripts/sync.sh",t:"手元にコピー",x:"Hugging Face から必要な部分を取得し、2回目以降は変わったファイルだけを更新します。"}
+  ];
+  var rows=T.map(function(n,i){
+    var b=document.createElement("button");b.type="button";b.className="node";b.setAttribute("role","listitem");b.style.paddingLeft=(14+n.d*22)+"px";
+    b.innerHTML='<span class="f">'+(n.d?'<span class="br">'+(n.d===2?(i===T.length-1?"└ ":"├ "):"└ ")+"</span>":"")+esc(n.f)+'</span><span class="t">'+esc(n.t)+"</span>";
+    b.addEventListener("click",function(){p.paused=true;clearTimeout(p.timer);setPauseLabel("tree");sel(i);});
+    box.appendChild(b);return b;
+  });
+  function sel(i){rows.forEach(function(r,j){r.classList.toggle("on",j===i);r.classList.toggle("read",j<i);});
+    say.innerHTML="<b>"+esc(T[i].f)+"</b>"+esc(T[i].x);}
+  sel(5);
+  var steps=T.map(function(_,i){return function(){sel(i);return i===0?2200:2600;};});
+  var p=new Player(steps);players.tree=p;if(REDUCED)p.paused=true;
+  observe(box,p);
+})();
+
+/* ---------- pause buttons ---------- */
+document.querySelectorAll("[data-pause]").forEach(function(b){
+  var name=b.getAttribute("data-pause");setPauseLabel(name);
+  b.addEventListener("click",function(){players[name].togglePause();setPauseLabel(name);});
+});
+
+/* ---------- copy ---------- */
+document.querySelectorAll("button[data-copy]").forEach(function(b){
+  var label=b.innerHTML;
   b.addEventListener("click",function(){
-    var t=document.getElementById(b.dataset.copy).innerText.trim();
-    var done=function(){b.textContent="コピーしました";setTimeout(function(){b.textContent="コピー";},1600);};
-    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,function(){});}
+    var node=$(b.getAttribute("data-copy")),t=node.textContent.trim();
+    function ok(){b.innerHTML=IC_CHECK+"<span>コピーしました</span>";setTimeout(function(){b.innerHTML=label;},1600);}
+    function sel(){var r=document.createRange();r.selectNodeContents(node);var s=getSelection();s.removeAllRanges();s.addRange(r);b.innerHTML=IC_CHECK+"<span>選択しました</span>";setTimeout(function(){b.innerHTML=label;},1600);}
+    try{navigator.clipboard.writeText(t).then(ok,sel);}catch(e){sel();}
   });
 });
+})();
 </script>
 </body>
 </html>
