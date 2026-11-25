@@ -1,4 +1,7 @@
-# japan-weather
+# Using the japan-weather dataset
+
+<!-- The entry point for AI agents: users give its raw URL with a question.
+     Links are absolute so that the raw file works on its own. -->
 
 > Daily (from 1872) and hourly (from 1885) surface observations of all JMA stations — about 160 official stations (気象台・測候所) and 1,500 AMeDAS stations — from JMA's 「過去の気象データ・ダウンロード」, as Parquet on the Hugging Face Hub (`hotchpotch/japan-weather`), updated every day. Query it with DuckDB. Not published by JMA: a processed copy under the 公共データ利用規約（第1.0版） (PDL 1.0, compatible with CC BY 4.0).
 

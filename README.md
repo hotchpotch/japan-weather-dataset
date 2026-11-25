@@ -6,7 +6,7 @@ stations — as a Parquet dataset on the Hugging Face Hub, updated every
 day, with an agent skill so that AI agents can analyze it.
 
 - Dataset: [hotchpotch/japan-weather](https://huggingface.co/datasets/hotchpotch/japan-weather)
-- For AI agents: [llms.txt](https://hotchpotch.github.io/japan-weather-dataset/llms.txt)
+- For AI agents: [docs/usage.md](docs/usage.md)
 
 日本語の紹介ページ：[https://hotchpotch.github.io/japan-weather-dataset/](https://hotchpotch.github.io/japan-weather-dataset/)（分析例もあります）
 
@@ -14,14 +14,15 @@ day, with an agent skill so that AI agents can analyze it.
 
 ### 1. Give the URL to an AI agent (recommended)
 
-Put the URL of [llms.txt](https://hotchpotch.github.io/japan-weather-dataset/llms.txt),
-the entry point for AI agents, into the prompt with your question. Nothing
-to install: agents that can run commands, such as Claude Code or Codex,
-read the guide, download the parts they need and analyze them.
+Put the raw URL of [docs/usage.md](docs/usage.md), the entry point for AI
+agents, into the prompt with your question. Nothing to install: agents
+that can run commands, such as Claude Code or Codex, read the guide,
+download the parts they need and analyze them.
 
 ```text
 Has the number of days of 35°C or more increased in Japan? Analyze the
-observation records. Use this data: https://hotchpotch.github.io/japan-weather-dataset/llms.txt
+observation records. Use this data:
+https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md
 ```
 
 ### 2. Install the agent skill

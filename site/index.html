@@ -18,7 +18,6 @@
 <meta property="og:image:alt" content="気象データを、AIがすぐ使える形に。japan-weather-dataset">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="alternate" type="text/plain" title="llms.txt" href="llms.txt">
 </head>
 <body>
 <!-- Icons: Lucide 1.70.0 (https://lucide.dev), ISC License, Copyright (c) 2026 Lucide Icons and Contributors.
@@ -425,19 +424,19 @@ footer p{margin:0}
       <h2><span class="nw">URLひとつで、</span><br><span class="nw">分析を任せる。</span></h2>
       <p class="lead">AIエージェント向けの説明書（<a href="https://agentskills.io/">Agent Skills</a> 形式のスキル）を用意しています。データの範囲、必要な部分だけを取得する方法、列の意味、SQLの例、長い期間を比べるときの注意点までを説明しています。<a href="https://claude.com/product/claude-code">Claude Code</a> や <a href="https://openai.com/codex/">Codex</a> なら、質問と次のURLを渡すだけで、ダウンロードから集計、まとめまで進みます。</p>
       <div class="prompt-copy">
-        <code id="prompt-text">日本で温暖化は本当に起きているの？過去の観測データから分析して。次のデータを使うこと：https://hotchpotch.github.io/japan-weather-dataset/llms.txt</code>
+        <code id="prompt-text">日本で温暖化は本当に起きているの？過去の観測データから分析して。次のデータを使うこと：https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md</code>
         <button class="copy" type="button" data-copy="prompt-text"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>コピー</span></button>
       </div>
       <p class="note-s" style="margin-top:10px">コマンドを実行できるエージェントを想定しています。結果にはAIの解釈も含まれるので、数値と方法を確かめてから使ってください。</p>
     </div>
     <div>
       <div class="panel" id="tree-demo">
-        <div class="panel-head"><span>llms.txt → skills/japan-weather</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="panel-head"><span>docs/usage.md → skills/japan-weather</span><span class="dots"><i></i><i></i><i></i></span></div>
         <div class="tree" id="tree" role="list"></div>
         <div class="tree-say" id="tree-say" aria-live="polite"></div>
       </div>
       <div class="cap">
-        <span><b>AIが読む文書</b>llms.txt を起点に、エージェントが読む文書の流れを示しています。項目を選ぶと、その文書の内容を表示します。</span>
+        <span><b>AIが読む文書</b>docs/usage.md を起点に、エージェントが読む文書の流れを示しています。項目を選ぶと、その文書の内容を表示します。</span>
         <button class="toggle" type="button" data-pause="tree">自動再生を停止</button>
       </div>
     </div>
@@ -545,8 +544,8 @@ footer p{margin:0}
         <span class="way-ico"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/> <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
         <span class="kicker">AI AGENT</span>
         <h3>URLを渡す<span class="rec">おすすめ</span></h3>
-        <p>質問と一緒に、AI向けの入口（<a href="https://hotchpotch.github.io/japan-weather-dataset/llms.txt">llms.txt</a>）のURLをプロンプトに入れます。事前の準備は要りません。</p>
-        <pre id="w1" class="wrap">https://hotchpotch.github.io/japan-weather-dataset/llms.txt</pre>
+        <p>質問と一緒に、AI向けの入口（<a href="https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md">usage.md</a>）のURLをプロンプトに入れます。事前の準備は要りません。</p>
+        <pre id="w1" class="wrap">https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md</pre>
         <button class="copy" type="button" data-copy="w1"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>URLをコピー</span></button>
       </div>
       <div class="way">
@@ -582,7 +581,7 @@ duckdb -c "SELECT date, temperature_max
     <div class="linkrow">
       <a href="https://huggingface.co/datasets/hotchpotch/japan-weather"><span class="n">01</span><b>Hugging Face</b><small>データセット本体とカード</small><span class="ar"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span></a>
       <a href="https://github.com/hotchpotch/japan-weather-dataset"><span class="n">02</span><b>GitHub</b><small>データ取得ツール jwd（MIT License）と文書</small><span class="ar"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span></a>
-      <a href="https://hotchpotch.github.io/japan-weather-dataset/llms.txt"><span class="n">03</span><b>llms.txt</b><small>AIエージェント向けの入口</small><span class="ar"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span></a>
+      <a href="https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md"><span class="n">03</span><b>usage.md</b><small>AIエージェント向けの入口</small><span class="ar"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/> <path d="M7 17 17 7"/></svg></span></a>
     </div>
   </div>
 </section>
@@ -750,7 +749,7 @@ function septChart(svg,on){
 /* ---------- hero: seven questions ---------- */
 (function(){
   var term=new Term($("q-term")),svg=$("q-viz"),res=$("q-result"),btns=[].slice.call(document.querySelectorAll(".qtabs button"));
-  var U="https://hotchpotch.github.io/japan-weather-dataset/llms.txt";
+  var U="https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md";
   var QS=[
     {q:"最高気温40℃以上の日は増えている？",s:["日最高気温40℃以上の日を1927年から数える","同じ789地点に絞り、測り方の段差を補正"],r:"延べ144回のうち117回が2018年以降",big:"約7倍",cap:"同じ789地点、1979〜2002年と2003〜2026年の比較",chart:kokushoChart},
     {q:"日本で温暖化は本当に起きているの？",s:["15地点の年平均気温を1898年から集計","移転の補正と、都市を除いた比較"],r:"1980年以降のデータがそろう805地点では、すべての地点で上昇",big:"+1.43℃",cap:"100年あたりの上昇（15地点の平均、1898〜2025年）",chart:stripesChart},
@@ -769,7 +768,7 @@ function septChart(svg,on){
     var s=QS[n];return [
       function(){press(n);term.clear();s.chart(svg,false);res.style.opacity=0;return 300;},
       function(){return term.type("you",s.q,U)+400;},
-      function(){term.line("step run","llms.txt と SKILL.md を読む");return 700;},
+      function(){term.line("step run","usage.md と SKILL.md を読む");return 700;},
       function(){term.line("step run",s.s[0]);return 900;},
       function(){term.line("step run",s.s[1]);return 900;},
       function(){s.chart(svg,true);term.line("res",s.r);res.innerHTML="<b>"+s.big+"</b><span>"+s.cap+"</span>";res.style.transition="opacity .4s";res.style.opacity=1;return 5200;},
@@ -816,7 +815,7 @@ function septChart(svg,on){
 (function(){
   var box=$("tree"),say=$("tree-say");
   var T=[
-    {d:0,f:"llms.txt",t:"AIへの入口",x:"データの概要と、読むべき文書の一覧。ここからスキルへ進みます。"},
+    {d:0,f:"docs/usage.md",t:"AIへの入口",x:"データの概要と、読むべき文書の一覧。ここからスキルへ進みます。"},
     {d:1,f:"SKILL.md",t:"使い方の概要",x:"何に答えられるか、作業の手順、データの鮮度、守るべきこと（データセットにある分を気象庁から取得しない、出典の書き方など）。"},
     {d:2,f:"references/download.md",t:"必要な部分だけ取得",x:"日別値の全体は約215MB、時別値は1990年代以降の1年分で約35〜42MB。問いに必要な年と要素だけを取得します。"},
     {d:2,f:"references/schema.md",t:"列と品質情報",x:"日別値と時別値の列、品質情報、時刻の決まり（1〜24時）、manifest.json の読み方。"},

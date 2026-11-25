@@ -15,6 +15,8 @@ Hugging Face Hub. Read before changing things:
 - [docs/release.md](docs/release.md): releases and the image.
 - [docs/crawler.md](docs/crawler.md): the `jwd` commands, flags and exit
   codes.
+- [docs/usage.md](docs/usage.md): the entry point for AI agents that use
+  the dataset (linked by raw URL from the site and README).
 
 ## Requests to JMA
 
@@ -45,8 +47,9 @@ Run the checks above before committing a behavior change. CI
 - Keep the documents in sync with the code: README, docs/, the dataset card
   template (`internal/export/card.md.tmpl`) and the agent skill for users
   of the dataset (`.agents/skills/japan-weather/`; `.claude/skills/` links
-  to it). The skill is installed into other projects on its own, so it
-  links to docs/ by GitHub URL, not by relative path.
+  to it) and its entry point `docs/usage.md`. The skill is installed into
+  other projects on its own, so it links to docs/ by GitHub URL, not by
+  relative path.
 - Add a short entry to `docs/releases/HEAD.md` when a change affects the
   dataset, the updates or the operation.
 - Workflows: reference actions by an exact release tag (`@v7.0.1`), then
