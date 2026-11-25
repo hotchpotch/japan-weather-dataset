@@ -66,7 +66,7 @@ go build -o bin/jwd ./cmd/jwd
   the source and who processed it, and do not present them as made by JMA
   or the government, for example:
 
-  > 出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに（加工者の名前）が加工して作成
+  > 出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに`{加工者の名前}`が加工して作成
 
   The dataset on the Hub is processed by Yuichi Tateno (@hotchpotch).
 - Code: MIT. Test fixtures under `internal/obsdl/testdata` are small

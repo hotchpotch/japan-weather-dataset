@@ -17,7 +17,7 @@ How to use it (for AI agents that can run commands):
 
 3. Query the Parquet files with DuckDB, keep values with quality 5 or 8, and read the pitfalls before comparing decades (homogeneity breaks, station sets, the AMeDAS 2003 step of daily max/min temperature).
 4. Do not crawl JMA for data that is in the dataset.
-5. When publishing results, credit the source and name who processed it: 出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに（利用者名）が加工して作成. Do not present results as made by JMA or the government.
+5. When publishing results, credit the source and name who processed it: 出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに`{加工者の名前}`が加工して作成. Do not present results as made by JMA or the government.
 
 To keep the skill in a project instead: `npx skills add hotchpotch/japan-weather-dataset --skill japan-weather`.
 

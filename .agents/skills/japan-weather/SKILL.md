@@ -94,7 +94,7 @@ Columns, daily vs hourly, the hour convention and `manifest.json`:
   publishing results (tables, charts, aggregates), follow its terms:
   - Credit the source and state that the user processed it, naming who:
     出典：気象庁ホームページ「過去の気象データ・ダウンロード」
-    （https://www.data.jma.go.jp/risk/obsdl/）をもとに（利用者名）が加工して作成.
+    （https://www.data.jma.go.jp/risk/obsdl/）をもとに`{加工者の名前}`が加工して作成.
     Ask the user for the name if unknown. The dataset's processor does not
     have to be named; mentioning the dataset as the route
     (Hugging Face `hotchpotch/japan-weather`) is optional.
