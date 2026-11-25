@@ -179,8 +179,10 @@ h1 .nw,h2 .nw{display:inline-block}
 .qtabs{display:flex;gap:6px;padding:12px 18px 0;flex-wrap:wrap}
 .qtabs button{font:inherit;font-size:12px;font-weight:600;color:var(--panel-muted);background:transparent;border:1px solid var(--panel-line);border-radius:99px;padding:3px 12px;cursor:pointer}
 .qtabs button[aria-pressed="true"]{color:var(--panel);background:var(--panel-ink);border-color:var(--panel-ink)}
-.prompt-copy{display:flex;align-items:center;gap:10px;margin-top:28px;background:var(--surface);border:1px solid var(--line2);border-radius:10px;padding:10px 10px 10px 16px;max-width:34em}
-.prompt-copy code{flex:1;min-width:0;font-family:var(--mono);font-size:12.5px;color:var(--ink2);overflow-x:auto;white-space:nowrap}
+.prompt-copy{margin-top:28px;background:var(--surface);border:1px solid var(--line2);border-radius:10px;padding:12px 16px 16px;max-width:34em}
+.prompt-copy .pc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.prompt-copy .pc-label{font-size:12px;font-weight:700;color:var(--muted)}
+.prompt-copy code{display:block;font-family:var(--mono);font-size:13px;line-height:1.75;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
 .copy{flex:none;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12px;font-weight:700;color:var(--brand-ink);background:var(--brand);border:0;border-radius:7px;padding:6px 12px;cursor:pointer}
 
 /* band */
@@ -424,8 +426,10 @@ footer p{margin:0}
       <h2><span class="nw">URLひとつで、</span><br><span class="nw">分析を任せる。</span></h2>
       <p class="lead">AIエージェント向けの説明書（<a href="https://agentskills.io/">Agent Skills</a> 形式のスキル）を用意しています。データの範囲、必要な部分だけを取得する方法、列の意味、SQLの例、長い期間を比べるときの注意点までを説明しています。<a href="https://claude.com/product/claude-code">Claude Code</a> や <a href="https://openai.com/codex/">Codex</a> なら、質問と次のURLを渡すだけで、ダウンロードから集計、まとめまで進みます。</p>
       <div class="prompt-copy">
-        <code id="prompt-text">日本で温暖化は本当に起きているの？過去の観測データから分析して。次のデータを使うこと：https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md</code>
-        <button class="copy" type="button" data-copy="prompt-text"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>コピー</span></button>
+        <div class="pc-head"><span class="pc-label">プロンプトの例</span>
+        <button class="copy" type="button" data-copy="prompt-text"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>コピー</span></button></div>
+        <code id="prompt-text">日本で温暖化は本当に起きているの？過去の観測データから分析して。
+次のデータを使うこと：https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md</code>
       </div>
       <p class="note-s" style="margin-top:10px">コマンドを実行できるエージェントを想定しています。結果にはAIの解釈も含まれるので、数値と方法を確かめてから使ってください。</p>
     </div>

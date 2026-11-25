@@ -5,10 +5,11 @@ Meteorological Agency) stations — about 1,700 official and AMeDAS
 stations — as a Parquet dataset on the Hugging Face Hub, updated every
 day, with an agent skill so that AI agents can analyze it.
 
+> [!TIP]
+> 日本語の紹介ページと分析例：<https://hotchpotch.github.io/japan-weather-dataset/>
+
 - Dataset: [hotchpotch/japan-weather](https://huggingface.co/datasets/hotchpotch/japan-weather)
 - For AI agents: [docs/usage.md](docs/usage.md)
-
-日本語の紹介ページ：[https://hotchpotch.github.io/japan-weather-dataset/](https://hotchpotch.github.io/japan-weather-dataset/)（分析例もあります）
 
 ## Use the dataset
 
@@ -86,4 +87,5 @@ go build -o bin/jwd ./cmd/jwd
 - Code: MIT. Test fixtures under `internal/obsdl/testdata` are small
   excerpts of JMA data (PDL 1.0).
 
-This project is not affiliated with JMA.
+> [!NOTE]
+> This project is not affiliated with JMA or the Government of Japan.

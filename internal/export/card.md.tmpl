@@ -31,22 +31,28 @@ Daily and hourly surface observations of every station of the Japan
 Meteorological Agency (JMA), the official stations (気象台・測候所等) and
 AMeDAS, as Parquet, updated every day.
 
+> [!TIP]
+> 日本語の紹介と分析例：<https://hotchpotch.github.io/japan-weather-dataset/>
+
 - Stations: {{.Stations}} (including stations that no longer observe)
 - Daily values from {{.DailyFrom}} and hourly values from {{.HourlyFrom}}, up to a day or two ago (JST). `manifest.json` gives the last day; values of recent days are preliminary.
 - Source: JMA 「過去の気象データ・ダウンロード」 <https://www.data.jma.go.jp/risk/obsdl/>
 
-**Not published by JMA or the Government of Japan.** It is a processed copy
-made by a third party.
+> [!IMPORTANT]
+> Not published by JMA or the Government of Japan. It is a processed copy
+> made by a third party.
 
 ## Documentation
 
 - The data (tables, columns, quality flags, homogeneity, files, updates): [docs/dataset.md](https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/dataset.md)
 - Keeping a local copy: [docs/local-copy.md](https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/local-copy.md)
-- For AI agents: give this URL with your question: <https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md>
-- 日本語の紹介と分析例：<https://hotchpotch.github.io/japan-weather-dataset/>
 - The crawler that builds this dataset: <https://github.com/hotchpotch/japan-weather-dataset>
 
 ## Usage
+
+> [!TIP]
+> With an AI agent (Claude Code, Codex, …), give this URL with your question:
+> <https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/usage.md>
 
 ```sql
 -- DuckDB: the 10 stations with the most rain on 2019-10-12
