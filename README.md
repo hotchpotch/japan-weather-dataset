@@ -19,6 +19,9 @@ Parquet dataset that can be published on Hugging Face and queried with SQL.
   code, and the crawler stops instead of retrying blindly
   ([details](docs/dataset.md#access-restrictions)).
 
+An introduction page in Japanese and an `llms.txt` for AI agents are in
+[site/](site/README.md) (for GitHub Pages).
+
 See [docs/source.md](docs/source.md) for how the source service works and
 [docs/dataset.md](docs/dataset.md) for the dataset layout and the update strategy.
 [docs/operations.md](docs/operations.md) describes the operation: the daily

@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>japan-weather｜気象庁の過去の観測データを、AI で分析できる形に</title>
+<meta name="description" content="気象庁「過去の気象データ・ダウンロード」の全地点の日別値（1872年〜）と時別値（1885年〜）を Parquet にまとめ、Hugging Face で毎日更新して公開するデータセットと、その取得ツール。AI エージェント向けの文書付き。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="japan-weather｜気象庁の過去の観測データを、AI で分析できる形に">
+<meta property="og:description" content="全国約1,700地点・150年分の気象観測を Parquet で。毎日更新、AI エージェント向けの文書付き。">
+<meta property="og:url" content="https://hotchpotch.github.io/japan-weather-dataset/">
+<meta property="og:image" content="https://hotchpotch.github.io/japan-weather-dataset/images/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" type="text/markdown" title="llms.txt" href="llms.txt">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='2' height='8' fill='%231c5cab'/%3E%3Crect x='2' width='2' height='8' fill='%2386b6ef'/%3E%3Crect x='4' width='2' height='8' fill='%23f2917a'/%3E%3Crect x='6' width='2' height='8' fill='%23b8322a'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f6f6f4; --surface:#ffffff; --surface2:#eef0ef; --ink:#14181c; --ink2:#454c53; --muted:#6d747a;
+  --line:rgba(20,24,28,.11); --accent:#b8322a; --cool:#1c5cab; --code-bg:#14181c; --code-ink:#e8eaea;
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1113; --surface:#171a1d; --surface2:#1e2226; --ink:#eceeee; --ink2:#b9bec2; --muted:#8c9398;
+    --line:rgba(255,255,255,.10); --accent:#f2917a; --cool:#86b6ef; --code-bg:#0a0c0d; --code-ink:#e8eaea;
+    --shadow:none; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1113; --surface:#171a1d; --surface2:#1e2226; --ink:#eceeee; --ink2:#b9bec2; --muted:#8c9398;
+  --line:rgba(255,255,255,.10); --accent:#f2917a; --cool:#86b6ef; --code-bg:#0a0c0d; --code-ink:#e8eaea;
+  --shadow:none; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Yu Gothic",Meiryo,system-ui,sans-serif;
+  font-size:16px;line-height:1.85;font-feature-settings:"palt" 0}
+a{color:var(--cool);text-underline-offset:3px}
+a:hover{text-decoration-thickness:2px}
+code,pre,.mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Noto Sans Mono",monospace}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+.read{max-width:42em}
+.tab{font-variant-numeric:tabular-nums}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;gap:20px;height:52px}
+.brand{font-weight:700;color:var(--ink);text-decoration:none;letter-spacing:.01em;white-space:nowrap}
+.nav ul{display:flex;gap:18px;list-style:none;margin:0 0 0 auto;padding:0;font-size:14px;overflow-x:auto;scrollbar-width:none}
+.nav ul::-webkit-scrollbar{display:none}
+.nav li a{color:var(--ink2);text-decoration:none;white-space:nowrap}
+.nav li a:hover{color:var(--ink)}
+
+/* hero */
+.hero{padding:56px 0 8px}
+.eyebrow{font-size:13px;letter-spacing:.08em;color:var(--muted);margin:0 0 14px}
+h1{font-size:clamp(30px,5.4vw,52px);line-height:1.3;margin:0;letter-spacing:.01em;font-weight:800;text-wrap:balance}
+h1 .em{color:var(--accent)}
+.nw{display:inline-block}
+.lede{font-size:clamp(16px,2vw,18px);color:var(--ink2);margin:20px 0 0;max-width:38em}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin:28px 0 0}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;font-size:15px;font-weight:600;box-shadow:var(--shadow)}
+.btn:hover{border-color:var(--ink2)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn small{font-weight:400;color:inherit;opacity:.7;font-size:12px}
+.stripes-box{margin:40px 0 0}
+.stripes{display:block;width:100%;height:96px;border-radius:6px}
+.stripes-cap{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+.stripes-cap span:nth-child(2){text-align:center}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:28px 0 0}
+.fact{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow)}
+.fact .v{font-size:28px;font-weight:700;line-height:1.25}
+.fact .v small{font-size:14px;font-weight:500;color:var(--ink2);margin-left:3px}
+.fact .l{font-size:13px;color:var(--ink2);line-height:1.6;margin-top:4px}
+
+/* sections */
+section{padding:72px 0 0}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:20px}
+.sec-no{font-size:13px;color:var(--accent);font-weight:700;letter-spacing:.06em}
+h2{font-size:clamp(22px,3.2vw,30px);line-height:1.4;margin:0;font-weight:800;text-wrap:balance}
+h3{font-size:18px;margin:32px 0 8px;line-height:1.5}
+p{margin:0 0 1em}
+.note{font-size:14px;color:var(--muted)}
+
+/* flow */
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:28px 0 0;counter-reset:f}
+.flow li{list-style:none;position:relative;background:var(--surface);border:1px solid var(--line);padding:16px 18px 18px;font-size:14px;line-height:1.7;color:var(--ink2)}
+.flow li:first-child{border-radius:10px 0 0 10px}
+.flow li:last-child{border-radius:0 10px 10px 0}
+.flow li+li{border-left:none}
+.flow b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+.flow li::before{counter-increment:f;content:counter(f);display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--surface2);color:var(--ink2);font-size:12px;font-weight:700;margin-bottom:8px}
+.flow{padding:0}
+
+/* schedule cards */
+.cards2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 6px;font-size:16px}
+.card p{font-size:14px;color:var(--ink2);margin:0 0 .6em}
+.card .when{font-size:13px;color:var(--muted);margin:0 0 8px}
+.card a.more{font-size:14px}
+
+/* prompt */
+.prompt{position:relative;background:var(--code-bg);color:var(--code-ink);border-radius:12px;padding:22px 22px 20px;margin:22px 0 0;font-size:15px;line-height:1.9}
+.prompt .label{position:absolute;top:-11px;left:18px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;padding:1px 10px;border-radius:99px;letter-spacing:.04em}
+.prompt p{margin:0}
+.prompt .url{color:#9cc7f5;word-break:break-all}
+.copy{position:absolute;top:-13px;right:16px;font:inherit;font-size:12px;line-height:1.6;color:var(--code-ink);background:#2a3036;border:1px solid rgba(255,255,255,.22);border-radius:99px;padding:1px 12px;cursor:pointer}
+.copy:hover{background:#3a4148}
+pre{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:16px 18px;overflow-x:auto;font-size:13.5px;line-height:1.7;margin:12px 0 0}
+p code,li code,td code{background:var(--surface2);padding:1px 6px;border-radius:4px;font-size:.9em}
+.steps{margin:18px 0 0;padding-left:1.3em}
+.steps li{margin:0 0 .5em}
+.ways{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0 0}
+.card,.fact,.item{min-width:0}
+.ways .card p{margin:0}
+
+/* showroom */
+.show{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:26px 0 0}
+.item{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;color:inherit;text-decoration:none;box-shadow:var(--shadow);transition:transform .15s ease,border-color .15s ease}
+.item:hover{transform:translateY(-2px);border-color:var(--ink2)}
+.item img{display:block;width:100%;height:auto;aspect-ratio:8/5;object-fit:cover;object-position:top;border-bottom:1px solid var(--line);background:#f4f5f4}
+.item .body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:8px;flex:1}
+.item h3{margin:0;font-size:18px}
+.item p{margin:0;font-size:14px;color:var(--ink2);line-height:1.75}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:6px}
+.chip{font-size:12px;background:var(--surface2);color:var(--ink2);border-radius:99px;padding:2px 10px}
+.item .go{font-size:13px;color:var(--cool);font-weight:600}
+
+/* table */
+.tbl{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0 0;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tbl th,.tbl td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl th{background:var(--surface2);font-weight:600;color:var(--ink2);font-size:13px}
+.tbl-wrap{overflow-x:auto}
+
+/* credit */
+.credit{background:var(--surface);border-left:3px solid var(--cool);padding:12px 16px;font-size:14px;color:var(--ink2);border-radius:0 8px 8px 0;margin:12px 0 0}
+
+footer{margin:88px 0 0;padding:28px 0 40px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+footer p{margin:0 0 .5em}
+footer a{color:var(--ink2)}
+
+@media (max-width:860px){
+  .facts{grid-template-columns:repeat(2,1fr)}
+  .show{grid-template-columns:1fr}
+  .item{display:grid;grid-template-columns:minmax(0,1fr)}
+  .flow{grid-template-columns:1fr 1fr}
+  .flow li{border-radius:0!important;border-left:1px solid var(--line)!important}
+  .flow li:nth-child(n+3){border-top:none}
+  .flow li:nth-child(even){border-left:none!important}
+  .flow li:first-child{border-radius:10px 0 0 0!important}
+  .flow li:nth-child(2){border-radius:0 10px 0 0!important}
+  .flow li:nth-child(3){border-radius:0 0 0 10px!important}
+  .flow li:last-child{border-radius:0 0 10px 0!important}
+  .ways{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){
+  .hero{padding-top:36px}
+  section{padding-top:56px}
+  .cards2{grid-template-columns:1fr}
+  .flow{grid-template-columns:1fr}
+  .flow li{border-left:1px solid var(--line)!important;border-radius:0!important}
+  .flow li+li{border-top:none}
+  .flow li:first-child{border-radius:10px 10px 0 0!important}
+  .flow li:last-child{border-radius:0 0 10px 10px!important}
+  .fact .v{font-size:24px}
+  .stripes{height:72px}
+  .stripes-cap span:nth-child(2){display:none}
+  .nav ul{gap:14px;font-size:13px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.item{transition:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="ページ内の移動">
+  <div class="wrap">
+    <a class="brand" href="#top">japan-weather</a>
+    <ul>
+      <li><a href="#what">これは何か</a></li>
+      <li><a href="#why">なぜ</a></li>
+      <li><a href="#ai">AI で使う</a></li>
+      <li><a href="#showroom">分析の例</a></li>
+      <li><a href="#data">データ</a></li>
+      <li><a href="#license">ライセンス</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="top">
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">オープンデータセット ＋ オープンソースの取得ツール</p>
+    <h1><span class="nw">気象庁の</span> <span class="nw">150 年分の</span><span class="nw">観測記録を、</span><br><span class="em"><span class="nw">AI がすぐ</span><span class="nw">分析できる形に。</span></span></h1>
+    <p class="lede">気象庁が公開している「過去の気象データ」から、全国の気象台とアメダス、約 1,700 地点の日別値と時別値をすべて取得し、Parquet 形式のデータセットにまとめました。Hugging Face で公開し、毎日更新しています。AI エージェント向けの説明書も付いているので、URL を一つ渡すだけで、何十年分ものデータを使った調査や分析を任せられます。</p>
+    <div class="cta">
+      <a class="btn primary" href="https://huggingface.co/datasets/hotchpotch/japan-weather">データセット <small>Hugging Face</small></a>
+      <a class="btn" href="https://github.com/hotchpotch/japan-weather-dataset">ソースコード <small>GitHub</small></a>
+      <a class="btn" href="llms.txt">AI 向けの入口 <small>llms.txt</small></a>
+    </div>
+
+    <figure class="stripes-box" style="margin-left:0;margin-right:0">
+      <svg class="stripes" viewBox="0 0 128 1" preserveAspectRatio="none" role="img" aria-label="日本の年平均気温の偏差（15地点平均、1898〜2025年）。青は1991〜2020年の平均より低い年、赤は高い年。"><rect x="0" width="1.04" height="1" fill="#256abe"><title>1898年 -1.03℃</title></rect><rect x="1" width="1.04" height="1" fill="#1e5faf"><title>1899年 -1.10℃</title></rect><rect x="2" width="1.04" height="1" fill="#103d76"><title>1900年 -1.35℃</title></rect><rect x="3" width="1.04" height="1" fill="#11417d"><title>1901年 -1.32℃</title></rect><rect x="4" width="1.04" height="1" fill="#113f7b"><title>1902年 -1.33℃</title></rect><rect x="5" width="1.04" height="1" fill="#2265b7"><title>1903年 -1.06℃</title></rect><rect x="6" width="1.04" height="1" fill="#1a58a4"><title>1904年 -1.15℃</title></rect><rect x="7" width="1.04" height="1" fill="#154a8d"><title>1905年 -1.25℃</title></rect><rect x="8" width="1.04" height="1" fill="#0d366b"><title>1906年 -1.62℃</title></rect><rect x="9" width="1.04" height="1" fill="#0d366b"><title>1907年 -1.51℃</title></rect><rect x="10" width="1.04" height="1" fill="#0d366b"><title>1908年 -1.74℃</title></rect><rect x="11" width="1.04" height="1" fill="#0d366b"><title>1909年 -1.43℃</title></rect><rect x="12" width="1.04" height="1" fill="#0d366b"><title>1910年 -1.51℃</title></rect><rect x="13" width="1.04" height="1" fill="#2970c6"><title>1911年 -0.99℃</title></rect><rect x="14" width="1.04" height="1" fill="#0d366b"><title>1912年 -1.41℃</title></rect><rect x="15" width="1.04" height="1" fill="#0d366b"><title>1913年 -1.88℃</title></rect><rect x="16" width="1.04" height="1" fill="#95bff2"><title>1914年 -0.50℃</title></rect><rect x="17" width="1.04" height="1" fill="#3885e3"><title>1915年 -0.85℃</title></rect><rect x="18" width="1.04" height="1" fill="#a7caf5"><title>1916年 -0.43℃</title></rect><rect x="19" width="1.04" height="1" fill="#0d366b"><title>1917年 -1.61℃</title></rect><rect x="20" width="1.04" height="1" fill="#0e3970"><title>1918年 -1.38℃</title></rect><rect x="21" width="1.04" height="1" fill="#256abe"><title>1919年 -1.03℃</title></rect><rect x="22" width="1.04" height="1" fill="#448ee6"><title>1920年 -0.80℃</title></rect><rect x="23" width="1.04" height="1" fill="#0e3970"><title>1921年 -1.38℃</title></rect><rect x="24" width="1.04" height="1" fill="#3682df"><title>1922年 -0.87℃</title></rect><rect x="25" width="1.04" height="1" fill="#2265b7"><title>1923年 -1.06℃</title></rect><rect x="26" width="1.04" height="1" fill="#124482"><title>1924年 -1.30℃</title></rect><rect x="27" width="1.04" height="1" fill="#164c90"><title>1925年 -1.24℃</title></rect><rect x="28" width="1.04" height="1" fill="#0d366b"><title>1926年 -1.62℃</title></rect><rect x="29" width="1.04" height="1" fill="#164d92"><title>1927年 -1.23℃</title></rect><rect x="30" width="1.04" height="1" fill="#327cd6"><title>1928年 -0.91℃</title></rect><rect x="31" width="1.04" height="1" fill="#1a57a2"><title>1929年 -1.16℃</title></rect><rect x="32" width="1.04" height="1" fill="#76aced"><title>1930年 -0.62℃</title></rect><rect x="33" width="1.04" height="1" fill="#113f7b"><title>1931年 -1.33℃</title></rect><rect x="34" width="1.04" height="1" fill="#276dc2"><title>1932年 -1.01℃</title></rect><rect x="35" width="1.04" height="1" fill="#2f78d0"><title>1933年 -0.94℃</title></rect><rect x="36" width="1.04" height="1" fill="#0d366b"><title>1934年 -1.43℃</title></rect><rect x="37" width="1.04" height="1" fill="#2367b9"><title>1935年 -1.05℃</title></rect><rect x="38" width="1.04" height="1" fill="#0d366b"><title>1936年 -1.40℃</title></rect><rect x="39" width="1.04" height="1" fill="#6aa5eb"><title>1937年 -0.66℃</title></rect><rect x="40" width="1.04" height="1" fill="#3987e5"><title>1938年 -0.84℃</title></rect><rect x="41" width="1.04" height="1" fill="#2a71c8"><title>1939年 -0.98℃</title></rect><rect x="42" width="1.04" height="1" fill="#1a58a4"><title>1940年 -1.15℃</title></rect><rect x="43" width="1.04" height="1" fill="#1f61b1"><title>1941年 -1.09℃</title></rect><rect x="44" width="1.04" height="1" fill="#2c73ca"><title>1942年 -0.97℃</title></rect><rect x="45" width="1.04" height="1" fill="#1a58a4"><title>1943年 -1.15℃</title></rect><rect x="46" width="1.04" height="1" fill="#0e3970"><title>1944年 -1.38℃</title></rect><rect x="47" width="1.04" height="1" fill="#0d366b"><title>1945年 -1.86℃</title></rect><rect x="48" width="1.04" height="1" fill="#6aa5eb"><title>1946年 -0.66℃</title></rect><rect x="49" width="1.04" height="1" fill="#0d366b"><title>1947年 -1.72℃</title></rect><rect x="50" width="1.04" height="1" fill="#b4d2f7"><title>1948年 -0.38℃</title></rect><rect x="51" width="1.04" height="1" fill="#2e76ce"><title>1949年 -0.95℃</title></rect><rect x="52" width="1.04" height="1" fill="#80b3ee"><title>1950年 -0.58℃</title></rect><rect x="53" width="1.04" height="1" fill="#317bd4"><title>1951年 -0.92℃</title></rect><rect x="54" width="1.04" height="1" fill="#2468bc"><title>1952年 -1.04℃</title></rect><rect x="55" width="1.04" height="1" fill="#256abe"><title>1953年 -1.03℃</title></rect><rect x="56" width="1.04" height="1" fill="#3e8ae6"><title>1954年 -0.82℃</title></rect><rect x="57" width="1.04" height="1" fill="#aaccf5"><title>1955年 -0.42℃</title></rect><rect x="58" width="1.04" height="1" fill="#2468bc"><title>1956年 -1.04℃</title></rect><rect x="59" width="1.04" height="1" fill="#2367b9"><title>1957年 -1.05℃</title></rect><rect x="60" width="1.04" height="1" fill="#80b3ee"><title>1958年 -0.58℃</title></rect><rect x="61" width="1.04" height="1" fill="#d8e6f6"><title>1959年 -0.18℃</title></rect><rect x="62" width="1.04" height="1" fill="#90bcf1"><title>1960年 -0.52℃</title></rect><rect x="63" width="1.04" height="1" fill="#dfe9f3"><title>1961年 -0.12℃</title></rect><rect x="64" width="1.04" height="1" fill="#68a4eb"><title>1962年 -0.67℃</title></rect><rect x="65" width="1.04" height="1" fill="#2f78d0"><title>1963年 -0.94℃</title></rect><rect x="66" width="1.04" height="1" fill="#7eb1ee"><title>1964年 -0.59℃</title></rect><rect x="67" width="1.04" height="1" fill="#134686"><title>1965年 -1.28℃</title></rect><rect x="68" width="1.04" height="1" fill="#3e8ae6"><title>1966年 -0.82℃</title></rect><rect x="69" width="1.04" height="1" fill="#4c93e8"><title>1967年 -0.77℃</title></rect><rect x="70" width="1.04" height="1" fill="#3079d2"><title>1968年 -0.93℃</title></rect><rect x="71" width="1.04" height="1" fill="#2062b3"><title>1969年 -1.08℃</title></rect><rect x="72" width="1.04" height="1" fill="#2367b9"><title>1970年 -1.05℃</title></rect><rect x="73" width="1.04" height="1" fill="#2c73ca"><title>1971年 -0.97℃</title></rect><rect x="74" width="1.04" height="1" fill="#a4c9f4"><title>1972年 -0.44℃</title></rect><rect x="75" width="1.04" height="1" fill="#7eb1ee"><title>1973年 -0.59℃</title></rect><rect x="76" width="1.04" height="1" fill="#175096"><title>1974年 -1.21℃</title></rect><rect x="77" width="1.04" height="1" fill="#70a9ec"><title>1975年 -0.64℃</title></rect><rect x="78" width="1.04" height="1" fill="#1955a0"><title>1976年 -1.17℃</title></rect><rect x="79" width="1.04" height="1" fill="#5d9dea"><title>1977年 -0.71℃</title></rect><rect x="80" width="1.04" height="1" fill="#9fc6f3"><title>1978年 -0.46℃</title></rect><rect x="81" width="1.04" height="1" fill="#e2eaf2"><title>1979年 -0.09℃</title></rect><rect x="82" width="1.04" height="1" fill="#2062b3"><title>1980年 -1.08℃</title></rect><rect x="83" width="1.04" height="1" fill="#134686"><title>1981年 -1.28℃</title></rect><rect x="84" width="1.04" height="1" fill="#76aced"><title>1982年 -0.62℃</title></rect><rect x="85" width="1.04" height="1" fill="#478fe7"><title>1983年 -0.79℃</title></rect><rect x="86" width="1.04" height="1" fill="#134686"><title>1984年 -1.28℃</title></rect><rect x="87" width="1.04" height="1" fill="#68a4eb"><title>1985年 -0.67℃</title></rect><rect x="88" width="1.04" height="1" fill="#154a8d"><title>1986年 -1.25℃</title></rect><rect x="89" width="1.04" height="1" fill="#a7caf5"><title>1987年 -0.43℃</title></rect><rect x="90" width="1.04" height="1" fill="#2e76ce"><title>1988年 -0.95℃</title></rect><rect x="91" width="1.04" height="1" fill="#dce8f4"><title>1989年 -0.14℃</title></rect><rect x="92" width="1.04" height="1" fill="#f5a38f"><title>1990年 +0.48℃</title></rect><rect x="93" width="1.04" height="1" fill="#e6ecf0"><title>1991年 -0.05℃</title></rect><rect x="94" width="1.04" height="1" fill="#afcff6"><title>1992年 -0.40℃</title></rect><rect x="95" width="1.04" height="1" fill="#418ce6"><title>1993年 -0.81℃</title></rect><rect x="96" width="1.04" height="1" fill="#fad1c5"><title>1994年 +0.27℃</title></rect><rect x="97" width="1.04" height="1" fill="#98c1f2"><title>1995年 -0.49℃</title></rect><rect x="98" width="1.04" height="1" fill="#3c89e5"><title>1996年 -0.83℃</title></rect><rect x="99" width="1.04" height="1" fill="#d6e5f7"><title>1997年 -0.20℃</title></rect><rect x="100" width="1.04" height="1" fill="#f5a794"><title>1998年 +0.46℃</title></rect><rect x="101" width="1.04" height="1" fill="#f7d9d0"><title>1999年 +0.20℃</title></rect><rect x="102" width="1.04" height="1" fill="#e9edee"><title>2000年 -0.03℃</title></rect><rect x="103" width="1.04" height="1" fill="#b9d5f8"><title>2001年 -0.36℃</title></rect><rect x="104" width="1.04" height="1" fill="#ebeeee"><title>2002年 -0.01℃</title></rect><rect x="105" width="1.04" height="1" fill="#b6d4f7"><title>2003年 -0.37℃</title></rect><rect x="106" width="1.04" height="1" fill="#f5a794"><title>2004年 +0.46℃</title></rect><rect x="107" width="1.04" height="1" fill="#c3dcf9"><title>2005年 -0.32℃</title></rect><rect x="108" width="1.04" height="1" fill="#e0e9f2"><title>2006年 -0.11℃</title></rect><rect x="109" width="1.04" height="1" fill="#faccbf"><title>2007年 +0.30℃</title></rect><rect x="110" width="1.04" height="1" fill="#e3ebf1"><title>2008年 -0.08℃</title></rect><rect x="111" width="1.04" height="1" fill="#eceeed"><title>2009年 -0.00℃</title></rect><rect x="112" width="1.04" height="1" fill="#faccbf"><title>2010年 +0.30℃</title></rect><rect x="113" width="1.04" height="1" fill="#d9e7f6"><title>2011年 -0.17℃</title></rect><rect x="114" width="1.04" height="1" fill="#cfe3fa"><title>2012年 -0.26℃</title></rect><rect x="115" width="1.04" height="1" fill="#efe9e6"><title>2013年 +0.05℃</title></rect><rect x="116" width="1.04" height="1" fill="#d9e7f6"><title>2014年 -0.17℃</title></rect><rect x="117" width="1.04" height="1" fill="#f7b7a7"><title>2015年 +0.39℃</title></rect><rect x="118" width="1.04" height="1" fill="#f18f78"><title>2016年 +0.57℃</title></rect><rect x="119" width="1.04" height="1" fill="#e6ecf0"><title>2017年 -0.05℃</title></rect><rect x="120" width="1.04" height="1" fill="#f8baaa"><title>2018年 +0.38℃</title></rect><rect x="121" width="1.04" height="1" fill="#ee856f"><title>2019年 +0.62℃</title></rect><rect x="122" width="1.04" height="1" fill="#ec7f69"><title>2020年 +0.65℃</title></rect><rect x="123" width="1.04" height="1" fill="#ef8771"><title>2021年 +0.61℃</title></rect><rect x="124" width="1.04" height="1" fill="#ef8972"><title>2022年 +0.60℃</title></rect><rect x="125" width="1.04" height="1" fill="#95231c"><title>2023年 +1.28℃</title></rect><rect x="126" width="1.04" height="1" fill="#7a1712"><title>2024年 +1.47℃</title></rect><rect x="127" width="1.04" height="1" fill="#a22821"><title>2025年 +1.22℃</title></rect></svg>
+      <figcaption class="stripes-cap"><span>1898</span><span>日本の年平均気温の偏差（気象庁が全国の平均に使う 15 地点、1991〜2020 年の平均との差）。このデータセットから計算</span><span>2025</span></figcaption>
+    </figure>
+
+    <div class="facts">
+      <div class="fact"><div class="v tab">1872<small>年から</small></div><div class="l">日別値の始まり。時別値は 1885 年から、昨日まで</div></div>
+      <div class="fact"><div class="v tab">1,678<small>地点</small></div><div class="l">気象台など 159、アメダス 1,519（廃止した地点を含む）</div></div>
+      <div class="fact"><div class="v tab">約6億<small>行</small></div><div class="l">時別値。日別値は約 2,600 万行。合わせて約 2 GB</div></div>
+      <div class="fact"><div class="v">毎日<small>更新</small></div><div class="l">GitHub Actions で自動更新。月に一度、確定した値で取り直す</div></div>
+    </div>
+  </div>
+</header>
+
+<section id="what">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-no">01</span><h2>これは何か</h2></div>
+    <div class="read">
+      <p><b>japan-weather</b> は、気象庁の<a href="https://www.data.jma.go.jp/risk/obsdl/">「過去の気象データ・ダウンロード」</a>で公開されている地上観測の記録を、全地点・全期間にわたって集めたデータセットです。気温、降水量、積雪、風、日照、日射、湿度、気圧、雲量、天気概況など、日別値で 23 要素、時別値で 15 要素を収録しています。値ごとに気象庁の品質情報と均質番号（観測場所や方法が変わった区切り）も残しているので、長い期間を比べる分析にも使えます。</p>
+      <p>データは列指向の <a href="https://parquet.apache.org/">Parquet</a> 形式で、年ごと・月ごとのファイルに分けてあります。必要な年だけを手元に落とし、<a href="https://duckdb.org/">DuckDB</a> などで SQL を書けばすぐに集計できます。たとえば、東京の 2025 年 8 月の日最高気温は次の一行で取り出せます。</p>
+    </div>
+<pre><code>duckdb -c "SELECT date, temperature_max
+  FROM read_parquet('~/.cache/japan-weather/data/daily/*/*.parquet', hive_partitioning = false)
+  WHERE station_id = 's47662' AND date >= DATE '2025-08-01' ORDER BY date LIMIT 5"</code></pre>
+    <p class="note" style="margin-top:10px">データの取得から公開までを行う道具（Go で書いた <code>jwd</code>）も、MIT ライセンスのオープンソースとして公開しています。</p>
+  </div>
+</section>
+
+<section id="why">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-no">02</span><h2>なぜ作ったのか</h2></div>
+    <div class="read">
+      <p>気象庁は、明治時代からの観測記録を誰でも無料で取り出せるようにしています。とてもありがたい公開です。ただ、「過去の気象データ・ダウンロード」は画面で地点・要素・期間を選んで CSV を受け取る仕組みで、一度に受け取れる量には上限（地点 × 要素 × 日数で 20 万まで）があります。プログラム向けの API は公開されておらず、アメダスの JSON で手に入るのは直近の数日分だけです。</p>
+      <p>そのため、「全国で暑い日はどれだけ増えたか」「雪はどこで減ったか」のように、多くの地点の長い記録を横断する分析をしようとすると、まずデータを集めるだけで大仕事になります。全地点・全期間を集めると、要求は日別と時別を合わせて約 7 万回になりました。</p>
+      <p>このプロジェクトは、その収集を一度だけ丁寧に行い、結果を扱いやすい形で公開します。データの準備に時間を取られずに、問いを立てて確かめることに集中できるようにするのが目的です。AI エージェントと組み合わせれば、調査や分析を短い時間で何度も試せます。</p>
+    </div>
+
+    <h3>どのように集めて、更新しているか</h3>
+    <ol class="flow">
+      <li><b>気象庁から取得</b>要求は一度に一つだけ。応答のあとに約 6 秒の間隔を空け、混雑の合図があれば間隔を広げる。アクセスの制限や保守を検知したら、回避せずに止まる。</li>
+      <li><b>Parquet に整形</b>CSV を列の決まった表に直し、品質情報、現象なし情報、均質番号を値ごとに保存する。</li>
+      <li><b>Hugging Face に公開</b>年・月ごとのファイルと、地点表、均質番号の変化点表、更新の記録（manifest）を置く。</li>
+      <li><b>毎日・毎月の更新</b>GitHub Actions が定期的に最新の値を取り、変わったファイルだけを差し替える。</li>
+    </ol>
+
+    <div class="cards2">
+      <div class="card">
+        <h3>毎日の更新</h3>
+        <p class="when">毎朝（日本時間 5:17 に予約。GitHub の都合で数時間遅れることがある）</p>
+        <p>今月の分について、直近の数日を取り直し、昨日までの値を加えます。所要時間は 10 分ほどです。</p>
+        <a class="more" href="https://github.com/hotchpotch/japan-weather-dataset/actions/workflows/daily.yml">実行の記録（GitHub Actions）</a>
+      </div>
+      <div class="card">
+        <h3>毎月の更新</h3>
+        <p class="when">毎月 1 日（日本時間 20:00 に予約）</p>
+        <p>気象庁の値は、まず速報値として公開され、数日から数週間のうちに予告なく直されることがあります。そこで、月が終わったあとに直近 2 か月を取り直し、確定した値に置き換えてから年のファイルにまとめます。</p>
+        <a class="more" href="https://github.com/hotchpotch/japan-weather-dataset/actions/workflows/monthly.yml">実行の記録（GitHub Actions）</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="ai">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-no">03</span><h2>AI に分析を頼む</h2></div>
+    <div class="read">
+      <p>データセットには、AI エージェント向けの説明書が付いています。データの範囲、日別値と時別値の使い分け、必要な部分だけをダウンロードする方法、列の意味、SQL の例、そして長い期間を比べるときの落とし穴（品質情報の扱い、観測場所の移転、2003 年のアメダスの最高・最低気温の段差など）です。</p>
+      <p>Claude Code や Codex のように、コマンドを実行できる AI エージェントなら、質問と一緒に次の URL を渡すだけで始められます。</p>
+    </div>
+
+    <div class="prompt" id="prompt">
+      <span class="label">プロンプトの例</span>
+      <button class="copy" type="button" data-copy="prompt-text">コピー</button>
+      <p id="prompt-text">日本で温暖化は本当に起きているの？過去の観測データから分析して。<br>次のデータを使うこと：<span class="url">https://hotchpotch.github.io/japan-weather-dataset/llms.txt</span></p>
+    </div>
+
+    <ol class="steps read">
+      <li>エージェントが <code>llms.txt</code> を読み、説明書（スキル）とデータの使い方を知る。</li>
+      <li>必要な年や要素のファイルだけを Hugging Face から手元に落とす（日別値の全体で約 215 MB）。</li>
+      <li>DuckDB で集計し、結果を表やグラフ、ページにまとめる。</li>
+    </ol>
+    <p class="note read">ほかの問いの例：「この 50 年で猛暑日はどの地域で増えた？」「札幌の初雪の日は遅くなっている？」「大雨の日は増えたのか、地点をそろえて確かめて」。分析の結果は、AI の解釈も含むので、元の数値と方法を確かめてから使ってください。</p>
+
+    <h3>使い方は三通り</h3>
+    <div class="ways">
+      <div class="card">
+        <h3>URL を渡す</h3>
+        <p>上のように <a href="llms.txt">llms.txt</a> の URL をプロンプトに入れる。準備は要らない。</p>
+      </div>
+      <div class="card">
+        <h3>スキルを入れる</h3>
+        <p><a href="https://agentskills.io/">Agent Skills</a> 形式。プロジェクトに入れておくと、気象の質問で自動的に使われる。</p>
+<pre><code>npx skills add \
+  hotchpotch/japan-weather-dataset \
+  --skill japan-weather</code></pre>
+      </div>
+      <div class="card">
+        <h3>自分で SQL を書く</h3>
+        <p>同梱の <code>sync.sh</code> で必要な部分を落とし、DuckDB や pandas、Polars で読む。手順は <a href="https://github.com/hotchpotch/japan-weather-dataset#using-the-dataset">README</a> にある。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="showroom">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-no">04</span><h2>分析の例</h2></div>
+    <div class="read">
+      <p>AI エージェントがこのデータセットを使って分析し、一つのページにまとめた例です。どれも観測データだけから数え直したもので、方法と限界をページの最後に書いています。</p>
+    </div>
+    <div class="show">
+      <a class="item" href="https://claude.ai/artifact/JbyAmikH7ZMZQzPmXi7dhN">
+        <img src="images/warming.webp" width="1200" height="750" loading="lazy" alt="「日本は本当に温暖化しているのか」のページ。年ごとの気温偏差を色の帯で示し、上昇率などの数値を並べている。">
+        <div class="body">
+          <h3>日本は本当に温暖化しているのか</h3>
+          <p>都市化の影響が小さい 15 地点の平均気温は、1898 年から 100 年あたり +1.43℃ のペースで上昇。1980 年以降にそろう 805 地点のすべてで気温が上がっていた。移転の補正、都市の除外、季節別の比較でも結論は同じ。気象庁の公表値も再現している。</p>
+          <div class="chips"><span class="chip">日別値 2,610 万行</span><span class="chip">地図のアニメーション</span></div>
+          <span class="go">ページを開く →</span>
+        </div>
+      </a>
+      <a class="item" href="https://claude.ai/artifact/BpufPmdg56PKiwUvTtU1Ao">
+        <img src="images/kokusho.webp" width="1200" height="750" loading="lazy" alt="「酷暑日は増えたのか」のページ。1927年以降の40℃以上の日を、1地点の1日を1つの四角として年ごとに積み上げた図。">
+        <div class="body">
+          <h3>酷暑日は増えたのか</h3>
+          <p>2026 年に名前が付いた「酷暑日」（最高気温 40℃ 以上）を 1927 年から数えると、延べ 144 回のうち 117 回が 2018 年以降の 9 年間。同じ 789 地点に限り、測り方の段差を補正しても、2003 年以降はそれ以前の約 7 倍。</p>
+          <div class="chips"><span class="chip">1927〜2026 年</span><span class="chip">段差の補正</span></div>
+          <span class="go">ページを開く →</span>
+        </div>
+      </a>
+      <a class="item" href="https://claude.ai/artifact/YDBJHEXQDVSpnhY5BVAfXb">
+        <img src="images/snow.webp" width="1200" height="750" loading="lazy" alt="「雪は、どこで減ったのか」のページ。真冬の気温で分けた3つの地域の、冬の最深積雪の変化を示している。">
+        <div class="body">
+          <h3>雪は、どこで減ったのか</h3>
+          <p>冬の最深積雪は、真冬の平均気温が 2℃ を超える「暖かい雪国」（北陸・山陰の海沿いなど）で 28% 減った。北海道の大半などの「寒い雪国」では 4% 減にとどまる。降水量は変わらないまま、雪が雨に変わっていた。</p>
+          <div class="chips"><span class="chip">気象台 65 地点</span><span class="chip">1962〜2026 年の冬</span></div>
+          <span class="go">ページを開く →</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section id="data">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-no">05</span><h2>データの中身</h2></div>
+    <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>部分</th><th>期間</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>daily</code>（日別値）</td><td class="tab">1872 年〜昨日</td><td>平均・最高・最低気温、降水量（合計、1 時間・10 分間の最大）、日照時間、全天日射量、最深積雪、降雪量、風速・最大風速・最大瞬間風速と風向、蒸気圧、湿度、気圧、雲量、天気概況。約 2,600 万行、約 215 MB</td></tr>
+        <tr><td><code>hourly</code>（時別値）</td><td class="tab">1885 年〜昨日</td><td>気温、降水量、降雪・積雪の深さ、日照時間、風向・風速、全天日射量、気圧、相対湿度、蒸気圧、露点温度、天気、雲量、視程。約 6 億行、約 1.9 GB</td></tr>
+        <tr><td><code>stations</code></td><td></td><td>地点表。名前と読み、緯度・経度、標高、観測している要素、観測の終了日</td></tr>
+        <tr><td><code>homogeneity_breaks</code></td><td></td><td>均質番号の変化点。移転や観測方法の変更で、長期の比較に注意が要る日付</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="note" style="margin-top:10px">行数と容量は 2026 年 11 月の時点。気象台・アメダスの地上観測のみで、予報、レーダー、高層・海上の観測、気象庁の月別統計や平年値は含みません（日別値から計算できます）。列の一覧は<a href="https://huggingface.co/datasets/hotchpotch/japan-weather">データセットのカード</a>と <a href="https://github.com/hotchpotch/japan-weather-dataset/blob/main/docs/dataset.md">docs/dataset.md</a> にあります。</p>
+  </div>
+</section>
+
+<section id="license">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-no">06</span><h2>ライセンスと出典</h2></div>
+    <div class="read">
+      <p>データは気象庁ホームページのもので、<a href="https://www.digital.go.jp/resources/open_data/public_data_license_v1.0">公共データ利用規約（第 1.0 版）</a>（PDL 1.0、CC BY 4.0 と互換）に従って利用できます。このデータセットを使ったものを公開するときは、出典と、加工したこと・加工した人を書いてください。Hugging Face で公開しているデータは、次のとおり加工したものです。</p>
+      <p class="credit">出典：気象庁ホームページ「過去の気象データ・ダウンロード」（https://www.data.jma.go.jp/risk/obsdl/）をもとに Yuichi Tateno (@hotchpotch) が加工して作成</p>
+      <p style="margin-top:1em">このデータセットを使って作った表やグラフを公開するときは、加工者としてあなた自身の名前を書いてください。このプロジェクトは気象庁とは関係のない個人のもので、気象庁や政府が作成したかのように見せる使い方はできません。取得ツールのコードは MIT ライセンスです。</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><a href="https://github.com/hotchpotch/japan-weather-dataset">GitHub</a> ・ <a href="https://huggingface.co/datasets/hotchpotch/japan-weather">Hugging Face</a> ・ <a href="llms.txt">llms.txt</a></p>
+    <p>作成：Yuichi Tateno (<a href="https://github.com/hotchpotch">@hotchpotch</a>)。気象庁の公式なサービスではありません。</p>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll("button.copy").forEach(function(b){
+  b.addEventListener("click",function(){
+    var t=document.getElementById(b.dataset.copy).innerText.trim();
+    var done=function(){b.textContent="コピーしました";setTimeout(function(){b.textContent="コピー";},1600);};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,function(){});}
+  });
+});
+</script>
+</body>
+</html>
