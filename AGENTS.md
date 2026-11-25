@@ -13,6 +13,8 @@ Hugging Face Hub. Read before changing things:
 - [docs/operations.md](docs/operations.md): the daily and monthly updates
   (GitHub Actions, without the crawl state).
 - [docs/release.md](docs/release.md): releases and the image.
+- [docs/crawler.md](docs/crawler.md): the `jwd` commands, flags and exit
+  codes.
 
 ## Requests to JMA
 

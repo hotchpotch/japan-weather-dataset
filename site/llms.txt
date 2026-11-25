@@ -40,7 +40,7 @@ To keep the skill in a project instead: `npx skills add hotchpotch/japan-weather
 
 - [docs/source.md](https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/source.md): how JMA's obsdl service works and its limits.
 - [docs/operations.md](https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/operations.md): the daily and monthly updates, JMA's preliminary and final values.
-- [README.md](https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/README.md): the `jwd` crawler (Go), building and running it.
+- [docs/crawler.md](https://raw.githubusercontent.com/hotchpotch/japan-weather-dataset/main/docs/crawler.md): the `jwd` crawler (Go), building and running it.
 - Example analyses made with this dataset (Japanese pages, each with its method and limits at the end):
   - [日本は本当に温暖化しているのか](https://hotchpotch.github.io/japan-weather-dataset/analyses/warming/): warming at 15 low-urbanization stations since 1898 and at 805 stations since 1980.
   - [酷暑日は増えたのか](https://hotchpotch.github.io/japan-weather-dataset/analyses/kokusho/): days of 40℃ or more since 1927, with the AMeDAS 2003 step corrected.

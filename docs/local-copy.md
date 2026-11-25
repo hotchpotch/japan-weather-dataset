@@ -114,7 +114,7 @@ passing `-e HF_TOKEN` for a private repository).
 ## A dataset of your own
 
 Building the whole dataset from JMA takes days of requests (`jwd stations`,
-`probe`, `backfill`, `export`; see the [README](../README.md#usage)). Use the
+`probe`, `backfill`, `export`; see [crawler.md](crawler.md#usage)). Use the
 Hub copy unless you need something it does not have. A fork that publishes
 its own dataset runs the workflows with its own `HF_DATASET_REPO` and
 `HF_TOKEN` ([operations.md](operations.md)); the scheduled jobs run only in
